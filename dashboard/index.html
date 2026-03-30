@@ -453,31 +453,39 @@ textarea{resize:vertical;min-height:80px}
   </div>
   <div class="content">
 
-    <!-- LIQUID CHARTS / FX BLUE -->
+    <!-- DX TRADE CFD -->
     <div class="connector-card">
       <div class="connector-header">
-        <div class="connector-icon" style="background:rgba(0,102,255,0.12);color:#6aa3ff">LC</div>
-        <div><div class="connector-name">Liquid Charts Pro</div><div class="connector-type">FX Blue Labs EA Hub · pro.liquidcharts.com</div></div>
-        <span class="connected-badge cb-no" id="badge-dxtrade">READ BELOW</span>
+        <div class="connector-icon" style="background:rgba(0,102,255,0.12);color:#6aa3ff">DX</div>
+        <div><div class="connector-name">DX Trade CFD</div><div class="connector-type">Session Auth · REST API · /api/auth/login</div></div>
+        <span class="connected-badge" id="badge-dxtrade">—</span>
       </div>
       <div class="connector-body">
-        <div class="alert-warn alert-box">
-          ⚠️ <strong>Liquid Charts Pro uses FX Blue Labs software — not a standard REST API.</strong><br><br>
-          It communicates via a WebSocket EA Hub that only works when the FX Blue EA is running locally on your machine. 
-          This <strong>cannot</strong> be reached from a cloud server like Railway.<br><br>
-          <strong>Recommended solution:</strong> Liquid Brokers also offers <strong>MT5 accounts</strong>. 
-          Use the MT5 connector below instead — it works fully in the cloud via the SignalBridge EA bridge.
-          Contact Liquid Brokers support to get your MT5 server, account number, and password.
+        <div class="alert-info alert-box">
+          ℹ️ Works with any broker running <strong>DX Trade CFD</strong> (FTMO, MyForexFunds, and others).
+          The <strong>Host</strong> is the domain you log into — e.g. <code style="font-family:var(--mono)">dxtrade.ftmo.com</code> or <code style="font-family:var(--mono)">trade.yourbroker.com</code>.
+          The <strong>Vendor</strong> field is usually the broker subdomain prefix (e.g. <code style="font-family:var(--mono)">ftmo</code>) — leave blank if unsure.
         </div>
-        <div class="section-heading" style="margin-top:8px">Local EA Hub (only if running SignalBridge on your own machine)</div>
         <div class="form-grid">
-          <div class="form-group"><label>Hub Host (default: localhost)</label><input id="dx-host" value="localhost" placeholder="localhost"></div>
-          <div class="form-group"><label>Hub Port (default: 31318)</label><input id="dx-port" type="number" value="31318"></div>
-          <div class="form-group"><label>EA Magic Number</label><input id="dx-magic" type="number" value="88001"></div>
-          <div class="form-group"><label>Account ID (for logging)</label><input id="dx-accountid" placeholder="e.g. DEM_313027_10"></div>
+          <div class="form-group"><label>Host (no https://)</label><input id="dx-host" placeholder="dxtrade.ftmo.com"></div>
+          <div class="form-group"><label>Vendor (broker prefix, often blank)</label><input id="dx-vendor" placeholder="e.g. ftmo — leave blank if unsure"></div>
+          <div class="form-group"><label>Username</label><input id="dx-username" placeholder="Your DX Trade username"></div>
+          <div class="form-group"><label>Password</label><input id="dx-password" type="password" placeholder="Your DX Trade password"></div>
+          <div class="form-group"><label>Account ID (optional)</label><input id="dx-accountid" placeholder="Account number"></div>
         </div>
-        <div style="display:flex;gap:10px">
-          <button class="btn btn-primary" onclick="testConn('dxtrade')">Test Hub Connection</button>
+        <div class="section-heading">Instrument IDs (optional — only needed for unlisted symbols)</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+          DX Trade requires a numeric instrument ID alongside the symbol name. Common ones are pre-loaded.
+          To find a missing ID: open DevTools on your broker's DX Trade platform → Network tab → place a manual trade → inspect the POST to <code style="font-family:var(--mono)">/api/orders/single</code> → note the <code style="font-family:var(--mono)">instrumentId</code> field.
+        </p>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <input id="dx-new-sym" placeholder="Symbol (e.g. NAS100)" style="flex:1">
+          <input id="dx-new-id" placeholder="Instrument ID (e.g. 3353)" style="flex:1" type="number">
+          <button class="btn btn-ghost btn-sm" onclick="addDxInstrument()" style="white-space:nowrap">Add ID</button>
+        </div>
+        <div id="dx-instrument-list" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button class="btn btn-primary" onclick="testConn('dxtrade')">Test Connection</button>
           <button class="btn btn-ghost" onclick="saveConn('dxtrade')">Save</button>
         </div>
         <div id="conn-result-dxtrade" class="hidden" style="margin-top:12px"></div>
@@ -1063,10 +1071,12 @@ async function saveConn(platform) {
   let body = {};
   if (platform === 'dxtrade') {
     body = {
-      host:      document.getElementById('dx-host').value.trim(),
-      username:  document.getElementById('dx-username').value.trim(),
-      password:  document.getElementById('dx-password').value,
-      accountId: document.getElementById('dx-accountid').value.trim(),
+      host:          document.getElementById('dx-host').value.trim(),
+      vendor:        document.getElementById('dx-vendor').value.trim(),
+      username:      document.getElementById('dx-username').value.trim(),
+      password:      document.getElementById('dx-password').value,
+      accountId:     document.getElementById('dx-accountid').value.trim(),
+      instrumentIds: window._dxInstrumentIds || {},
     };
   } else if (platform === 'mt5' || platform === 'mt4') {
     body = {
@@ -1189,6 +1199,29 @@ function connectWS() {
   };
   ws.onclose = () => setTimeout(connectWS, 5000);
   ws.onerror = () => ws.close();
+}
+
+
+// DX Trade custom instrument IDs
+window._dxInstrumentIds = {};
+function addDxInstrument() {
+  const sym = document.getElementById('dx-new-sym').value.trim().toUpperCase();
+  const id  = parseInt(document.getElementById('dx-new-id').value);
+  if (!sym || !id) { toast('Symbol and ID are required', 'error'); return; }
+  window._dxInstrumentIds[sym] = id;
+  document.getElementById('dx-new-sym').value = '';
+  document.getElementById('dx-new-id').value  = '';
+  renderDxInstruments();
+  toast(`${sym} → ${id} added`);
+}
+function renderDxInstruments() {
+  const el = document.getElementById('dx-instrument-list');
+  if (!el) return;
+  const entries = Object.entries(window._dxInstrumentIds);
+  if (!entries.length) { el.textContent = 'No custom IDs added'; return; }
+  el.innerHTML = entries.map(([s,id]) =>
+    `<span style="margin-right:12px">${s}: ${id} <button class="copy-btn" style="padding:1px 5px" onclick="delete window._dxInstrumentIds['${s}'];renderDxInstruments()">✕</button></span>`
+  ).join('');
 }
 
 // ══════════════════════════════════════════════════

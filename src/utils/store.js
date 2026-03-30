@@ -101,7 +101,7 @@ class Store {
       connectors: {
         mt5:       { type: 'mt5',       host: process.env.MT5_RELAY_HOST  || 'mt5-relay.signalbridge.io', apiKey: process.env.MT5_API_KEY   || '' },
         mt4:       { type: 'mt4',       host: process.env.MT4_RELAY_HOST  || 'mt4-relay.signalbridge.io', apiKey: process.env.MT4_API_KEY   || '' },
-        dxtrade:   { type: 'dxtrade',   host: process.env.DXTRADE_HOST || 'pro.liquidcharts.com', username: process.env.DXTRADE_USERNAME || '', password: process.env.DXTRADE_PASSWORD || '', accountId: process.env.DXTRADE_ACCOUNT_ID || '' },
+        dxtrade:   { type: 'dxtrade', host: process.env.DXTRADE_HOST || '', vendor: process.env.DXTRADE_VENDOR || '', username: process.env.DXTRADE_USERNAME || '', password: process.env.DXTRADE_PASSWORD || '', accountId: process.env.DXTRADE_ACCOUNT_ID || '', instrumentIds: {} },
         tradovate: { type: 'tradovate', host: process.env.TRADOVATE_HOST  || 'https://demo.tradovateapi.com', apiKey: process.env.TRADOVATE_API_KEY || '', accountSpec: process.env.TRADOVATE_ACCOUNT_SPEC || '' },
       },
       settings: {
