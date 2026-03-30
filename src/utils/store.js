@@ -7,14 +7,19 @@ const { DEFAULT_SYMBOL_MAP } = require('./symbolMapper');
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+// Server always uses service_role key — bypasses RLS so the server has full access.
+// The anon key is locked down via RLS deny-all policies (safe to expose in dashboard JS).
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_KEY) {
-  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  log.info('[Store] Supabase persistence enabled');
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const keyType = process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service_role' : 'anon (WARNING: use service_role in production)';
+  log.info(`[Store] Supabase persistence enabled (${keyType})`);
 } else {
-  log.warn('[Store] No SUPABASE_URL/SUPABASE_ANON_KEY — using in-memory store (data lost on restart)');
+  log.warn('[Store] No SUPABASE_URL — using in-memory store (data lost on restart)');
 }
 
 // ─── In-memory cache (always present, Supabase writes through) ────────────────
