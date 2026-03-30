@@ -3,10 +3,11 @@
 const express  = require('express');
 const router   = express.Router();
 const crypto   = require('crypto');
-const { store }         = require('../utils/store');
-const { log }           = require('../utils/logger');
+const { store }          = require('../utils/store');
+const { log }            = require('../utils/logger');
 const { validateSignal } = require('../utils/validator');
 const { routeSignal }    = require('../utils/router');
+const mapSymbol          = require('../utils/symbolMapper');
 
 // ─── Middleware: resolve token → user ────────────────────────────────────────
 function resolveToken(req, res, next) {
@@ -20,7 +21,7 @@ function resolveToken(req, res, next) {
 // ─── Optional HMAC signature verification ────────────────────────────────────
 function verifyHmac(req, res, next) {
   const user = req.user;
-  if (!user.settings.hmacSecret) return next(); // HMAC not configured
+  if (!user.settings.hmacSecret) return next();
 
   const sig = req.headers['x-signature-256'] || req.headers['x-tv-signature'];
   if (!sig) return res.status(401).json({ error: 'Missing HMAC signature' });
@@ -34,6 +35,13 @@ function verifyHmac(req, res, next) {
     return res.status(401).json({ error: 'Invalid HMAC signature' });
   }
   next();
+}
+
+// ─── Shared: does a route match this symbol? ─────────────────────────────────
+function routeMatchesSymbol(route, symbol) {
+  if (!route.active) return false;
+  if (!route.symbols || route.symbols.length === 0) return true; // blank = all
+  return route.symbols.map(s => s.toUpperCase()).includes(symbol.toUpperCase());
 }
 
 // ─── POST /hook/:token/signal ─────────────────────────────────────────────────
@@ -65,39 +73,40 @@ router.post('/:token/signal', resolveToken, verifyHmac, async (req, res) => {
 
   // 5. Persist log entry
   const entry = {
-    id:          store.nextLogId(),
-    ts:          new Date().toISOString(),
+    id:     store.nextLogId(),
+    ts:     new Date().toISOString(),
     signal,
     results,
-    ip:          req.ip,
-    userId:      user.userId,
+    ip:     req.ip,
+    userId: user.userId,
   };
   store.appendLog(entry);
   store.incrementSignalsToday();
 
-  log.info(`[SIGNAL] ${signal.action.toUpperCase()} ${signal.symbol} ×${signal.qty} → ${results.length} routes`);
-
+  log.info(`[SIGNAL] ${signal.action.toUpperCase()} ${signal.symbol} x${signal.qty} → ${results.length} routes`);
   res.json({ status: 'processed', signal, results });
 });
 
-// ─── POST /hook/:token/test — dry-run (no real orders) ────────────────────────
+// ─── POST /hook/:token/test — dry-run, respects symbol filters ───────────────
 router.post('/:token/test', resolveToken, async (req, res) => {
   const user = req.user;
-  const { symbol = 'EURUSD', action = 'buy', qty = 1 } = req.body;
+  const { symbol = 'EURUSD', action = 'buy', qty = 1, sl, tp } = req.body;
+  const symUpper = symbol.toUpperCase();
 
-  const mapSymbol = require('../utils/symbolMapper');
-
+  // Apply EXACT same routing logic as live signals, including symbol filters
   const results = user.routes
-    .filter(r => r.active)
+    .filter(r => routeMatchesSymbol(r, symUpper))
     .map(r => ({
       route:        r.name,
       platform:     r.platform,
-      brokerSymbol: mapSymbol(symbol, r.platform, user.symbolMap),
-      qty:          qty * (r.multiplier || 1),
+      brokerSymbol: mapSymbol(symUpper, r.platform, user.symbolMap),
+      qty:          parseFloat(qty) * (r.multiplier || 1),
+      ...(sl ? { sl } : {}),
+      ...(tp ? { tp } : {}),
       status:       'simulated',
     }));
 
-  res.json({ status: 'test_ok', symbol, action, qty, results });
+  res.json({ status: 'test_ok', symbol: symUpper, action, qty, results });
 });
 
 module.exports = router;
