@@ -1,126 +1,277 @@
 'use strict';
 
-const { v4: uuidv4 }    = require('uuid');
+const { createClient } = require('@supabase/supabase-js');
+const { v4: uuidv4 }   = require('uuid');
+const { log }          = require('./logger');
 const { DEFAULT_SYMBOL_MAP } = require('./symbolMapper');
 
-// ─── In-memory store ──────────────────────────────────────────────────────────
-// In production: replace Maps with Postgres + Redis
+// ─── Supabase client ──────────────────────────────────────────────────────────
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 
-class Store {
-  constructor() {
-    this._tokenMap   = new Map();   // token → userId
-    this._users      = new Map();   // userId → user object
-    this._log        = [];          // circular log (max 2000)
-    this._logId      = 0;
-    this._sigToday   = 0;
-    this._dedupCache = new Map();   // `userId:sym:action` → timestamp
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  log.info('[Store] Supabase persistence enabled');
+} else {
+  log.warn('[Store] No SUPABASE_URL/SUPABASE_ANON_KEY — using in-memory store (data lost on restart)');
+}
 
-    // Reset daily counter at midnight
-    this._scheduleDailyReset();
+// ─── In-memory cache (always present, Supabase writes through) ────────────────
+const _tokenMap   = new Map();  // token → userId
+const _users      = new Map();  // userId → user object
+const _log        = [];         // signal log (max 500 in memory)
+let   _logId      = 0;
+let   _sigToday   = 0;
+const _dedupCache = new Map();
 
-    // Bootstrap a demo user
-    this._bootstrapDemo();
+// ─── DB helpers ───────────────────────────────────────────────────────────────
+async function dbGet(table, userId) {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from(table).select('*').eq('user_id', userId).single();
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+    return data;
+  } catch (e) { log.error(`[DB] GET ${table}:`, e.message); return null; }
+}
+
+async function dbUpsert(table, payload) {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.from(table).upsert(payload, { onConflict: 'user_id' });
+    if (error) throw error;
+  } catch (e) { log.error(`[DB] UPSERT ${table}:`, e.message); }
+}
+
+// ─── User loading ─────────────────────────────────────────────────────────────
+async function loadOrCreateUser(userId, token) {
+  if (_users.has(userId)) return _users.get(userId);
+
+  // Build base user with defaults
+  const user = {
+    userId,
+    webhookToken: token,
+    routes:       [],
+    symbolMap:    { ...DEFAULT_SYMBOL_MAP },
+    connectors: {
+      mt5:       { type: 'mt5',       host: process.env.MT5_RELAY_HOST || '', apiKey: process.env.MT5_API_KEY || '' },
+      mt4:       { type: 'mt4',       host: process.env.MT4_RELAY_HOST || '', apiKey: process.env.MT4_API_KEY || '' },
+      dxtrade:   { type: 'dxtrade',   host: process.env.DXTRADE_HOST   || '', vendor: process.env.DXTRADE_VENDOR || '', username: process.env.DXTRADE_USERNAME || '', password: process.env.DXTRADE_PASSWORD || '', accountId: process.env.DXTRADE_ACCOUNT_ID || '', instrumentIds: {} },
+      tradovate: { type: 'tradovate', host: process.env.TRADOVATE_HOST  || 'https://demo.tradovateapi.com', apiKey: '', accountSpec: process.env.TRADOVATE_ACCOUNT_SPEC || '' },
+    },
+    settings: {
+      maxPositionSize:       parseFloat(process.env.DEFAULT_MAX_POSITION_SIZE)     || 10,
+      dailyLossLimit:        parseFloat(process.env.DEFAULT_DAILY_LOSS_LIMIT)      || 500,
+      maxSimultaneousTrades: parseInt(process.env.DEFAULT_MAX_SIMULTANEOUS_TRADES) || 5,
+      duplicateWindowSecs:   parseInt(process.env.DEFAULT_DUPLICATE_WINDOW_SECS)   || 30,
+      haltOnDailyLoss:       true,
+      reverseSignals:        false,
+      emailAlerts:           false,
+      hmacSecret:            '',
+    },
+    dailyPnl: 0,
+  };
+
+  if (supabase) {
+    // Load routes
+    try {
+      const { data: routes } = await supabase.from('sb_routes').select('*').eq('user_id', userId);
+      if (routes?.length) {
+        user.routes = routes.map(r => ({
+          id:          r.id,
+          name:        r.name,
+          platform:    r.platform,
+          symbols:     r.symbols || [],
+          multiplier:  parseFloat(r.multiplier),
+          orderType:   r.order_type,
+          maxDrawdown: parseFloat(r.max_drawdown),
+          active:      r.active,
+          createdAt:   r.created_at,
+        }));
+      }
+    } catch (e) { log.error('[DB] Load routes:', e.message); }
+
+    // Load connectors
+    const connRow = await dbGet('sb_connectors', userId);
+    if (connRow?.data) Object.assign(user.connectors, connRow.data);
+
+    // Load symbol map
+    const symRow = await dbGet('sb_symbol_map', userId);
+    if (symRow?.data) user.symbolMap = { ...DEFAULT_SYMBOL_MAP, ...symRow.data };
+
+    // Load settings
+    const setRow = await dbGet('sb_settings', userId);
+    if (setRow?.data) Object.assign(user.settings, setRow.data);
   }
 
-  // ─── Token resolution ──────────────────────────────────────────────
+  _users.set(userId, user);
+  _tokenMap.set(token, userId);
+  log.info(`[Store] Loaded user ${userId} (${user.routes.length} routes)`);
+  return user;
+}
+
+// ─── Public Store API ─────────────────────────────────────────────────────────
+const store = {
+  // ── Token resolution ────────────────────────────────────────────────────────
   getUserByToken(token) {
-    const userId = this._tokenMap.get(token);
-    return userId ? this._users.get(userId) : null;
-  }
+    const userId = _tokenMap.get(token);
+    return userId ? _users.get(userId) : null;
+  },
 
-  rotateToken(userId, newToken) {
-    // Remove old tokens for this user
-    for (const [t, uid] of this._tokenMap.entries()) {
-      if (uid === userId) this._tokenMap.delete(t);
+  async rotateToken(userId, newToken) {
+    // Remove old token mapping
+    for (const [t, uid] of _tokenMap.entries()) {
+      if (uid === userId) _tokenMap.delete(t);
     }
-    this._tokenMap.set(newToken, userId);
-    const user = this._users.get(userId);
+    _tokenMap.set(newToken, userId);
+    const user = _users.get(userId);
     if (user) user.webhookToken = newToken;
-  }
+    // Persist
+    if (supabase) {
+      try {
+        await supabase.from('sb_users').update({ token: newToken }).eq('id', userId);
+      } catch (e) { log.error('[DB] rotateToken:', e.message); }
+    }
+  },
 
-  // ─── Duplicate detection ────────────────────────────────────────────
+  // ── Routes ──────────────────────────────────────────────────────────────────
+  async saveRoute(userId, route) {
+    if (!supabase) return;
+    try {
+      await supabase.from('sb_routes').upsert({
+        id:           route.id,
+        user_id:      userId,
+        name:         route.name,
+        platform:     route.platform,
+        symbols:      route.symbols || [],
+        multiplier:   route.multiplier,
+        order_type:   route.orderType,
+        max_drawdown: route.maxDrawdown || 0,
+        active:       route.active,
+      }, { onConflict: 'id' });
+    } catch (e) { log.error('[DB] saveRoute:', e.message); }
+  },
+
+  async deleteRoute(userId, routeId) {
+    if (!supabase) return;
+    try {
+      await supabase.from('sb_routes').delete().eq('id', routeId).eq('user_id', userId);
+    } catch (e) { log.error('[DB] deleteRoute:', e.message); }
+  },
+
+  // ── Connectors ──────────────────────────────────────────────────────────────
+  async saveConnectors(userId, connectors) {
+    await dbUpsert('sb_connectors', { user_id: userId, data: connectors });
+  },
+
+  // ── Symbol map ──────────────────────────────────────────────────────────────
+  async saveSymbolMap(userId, symbolMap) {
+    await dbUpsert('sb_symbol_map', { user_id: userId, data: symbolMap });
+  },
+
+  // ── Settings ────────────────────────────────────────────────────────────────
+  async saveSettings(userId, settings) {
+    await dbUpsert('sb_settings', { user_id: userId, data: settings });
+  },
+
+  // ── Dedup ────────────────────────────────────────────────────────────────────
   isDuplicate(userId, symbol, action, windowSecs = 30) {
     const key  = `${userId}:${symbol}:${action}`;
-    const last = this._dedupCache.get(key);
+    const last = _dedupCache.get(key);
     const now  = Date.now();
     if (last && (now - last) < windowSecs * 1000) return true;
-    this._dedupCache.set(key, now);
+    _dedupCache.set(key, now);
     return false;
-  }
+  },
 
-  // ─── Signal log ─────────────────────────────────────────────────────
+  // ── Signal log ───────────────────────────────────────────────────────────────
   appendLog(entry) {
-    this._log.unshift(entry);
-    if (this._log.length > 2000) this._log.pop();
-  }
+    _log.unshift(entry);
+    if (_log.length > 500) _log.pop();
+    // Async persist to Supabase (don't await — don't block signal path)
+    if (supabase) {
+      supabase.from('sb_signal_log').insert({
+        user_id: entry.userId,
+        ts:      entry.ts,
+        signal:  entry.signal,
+        results: entry.results,
+        ip:      entry.ip || null,
+      }).then(({ error }) => {
+        if (error) log.error('[DB] appendLog:', error.message);
+      });
+    }
+  },
 
   getLog(userId, limit = 100) {
-    return this._log
-      .filter(e => e.userId === userId)
-      .slice(0, limit);
-  }
+    return _log.filter(e => e.userId === userId).slice(0, limit);
+  },
 
-  nextLogId() { return ++this._logId; }
-
-  // ─── Stats helpers ────────────────────────────────────────────────
-  incrementSignalsToday() { this._sigToday++; }
-  getSignalsToday()       { return this._sigToday; }
+  nextLogId()              { return ++_logId; },
+  incrementSignalsToday()  { _sigToday++; },
+  getSignalsToday()        { return _sigToday; },
   getTotalRoutes() {
     let n = 0;
-    for (const user of this._users.values()) n += user.routes?.length || 0;
+    for (const u of _users.values()) n += u.routes?.length || 0;
     return n;
-  }
+  },
 
-  // ─── Daily reset ──────────────────────────────────────────────────
+  // ── Daily reset ───────────────────────────────────────────────────────────────
   _scheduleDailyReset() {
-    const now     = new Date();
-    const midnight = new Date(now); midnight.setHours(24,0,0,0);
+    const now      = new Date();
+    const midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
     setTimeout(() => {
-      this._sigToday = 0;
-      for (const user of this._users.values()) user.dailyPnl = 0;
+      _sigToday = 0;
+      for (const u of _users.values()) u.dailyPnl = 0;
       this._scheduleDailyReset();
     }, midnight - now);
-  }
+  },
 
-  // ─── Demo user bootstrap ─────────────────────────────────────────
+  // ── Bootstrap ────────────────────────────────────────────────────────────────
+  async bootstrap() {
+    this._scheduleDailyReset();
+    if (supabase) {
+      // Load all users from DB
+      try {
+        const { data: users, error } = await supabase.from('sb_users').select('id, token');
+        if (error) throw error;
+        for (const u of users) {
+          await loadOrCreateUser(u.id, u.token);
+        }
+        log.info(`[Store] Bootstrapped ${users.length} user(s) from Supabase`);
+      } catch (e) {
+        log.error('[Store] Bootstrap failed, falling back to in-memory:', e.message);
+        this._bootstrapDemo();
+      }
+    } else {
+      this._bootstrapDemo();
+    }
+  },
+
   _bootstrapDemo() {
     const userId = 'user_demo';
     const token  = 'abc123xyz9f2e1';
-
     const user = {
       userId,
       webhookToken: token,
-      routes: [
-        { id: uuidv4(), name: 'FX → MT5 Live',        platform: 'mt5',       active: true,  symbols: ['EURUSD','GBPUSD','USDJPY'], multiplier: 1.0, orderType: 'MARKET' },
-        { id: uuidv4(), name: 'US Futures → Tradovate',platform: 'tradovate', active: true,  symbols: ['ES1!','NQ1!','RTY1!','MNQ1!','MES1!'], multiplier: 1.0, orderType: 'MARKET' },
-        { id: uuidv4(), name: 'Gold → DX Trade',       platform: 'dxtrade',   active: true,  symbols: ['XAUUSD','GC1!'], multiplier: 0.5, orderType: 'MARKET' },
-        { id: uuidv4(), name: 'Crypto → DX Trade',     platform: 'dxtrade',   active: false, symbols: ['BTCUSD','ETHUSD'], multiplier: 1.0, orderType: 'MARKET' },
-        { id: uuidv4(), name: 'Index Mirror (MT5)',     platform: 'mt5',       active: false, symbols: ['SPX','NDX','DJI'], multiplier: 2.0, orderType: 'MARKET' },
-      ],
-      symbolMap: { ...DEFAULT_SYMBOL_MAP },
+      routes: [],
+      symbolMap:    { ...DEFAULT_SYMBOL_MAP },
       connectors: {
-        mt5:       { type: 'mt5',       host: process.env.MT5_RELAY_HOST  || 'mt5-relay.signalbridge.io', apiKey: process.env.MT5_API_KEY   || '' },
-        mt4:       { type: 'mt4',       host: process.env.MT4_RELAY_HOST  || 'mt4-relay.signalbridge.io', apiKey: process.env.MT4_API_KEY   || '' },
-        dxtrade:   { type: 'dxtrade', host: process.env.DXTRADE_HOST || '', vendor: process.env.DXTRADE_VENDOR || '', username: process.env.DXTRADE_USERNAME || '', password: process.env.DXTRADE_PASSWORD || '', accountId: process.env.DXTRADE_ACCOUNT_ID || '', instrumentIds: {} },
-        tradovate: { type: 'tradovate', host: process.env.TRADOVATE_HOST  || 'https://demo.tradovateapi.com', apiKey: process.env.TRADOVATE_API_KEY || '', accountSpec: process.env.TRADOVATE_ACCOUNT_SPEC || '' },
+        mt5:       { type: 'mt5',       host: process.env.MT5_RELAY_HOST || '', apiKey: '' },
+        mt4:       { type: 'mt4',       host: process.env.MT4_RELAY_HOST || '', apiKey: '' },
+        dxtrade:   { type: 'dxtrade',   host: process.env.DXTRADE_HOST || '', vendor: '', username: '', password: '', accountId: '', instrumentIds: {} },
+        tradovate: { type: 'tradovate', host: 'https://demo.tradovateapi.com', apiKey: '', accountSpec: '' },
       },
       settings: {
-        maxPositionSize:       parseFloat(process.env.DEFAULT_MAX_POSITION_SIZE)       || 10,
-        dailyLossLimit:        parseFloat(process.env.DEFAULT_DAILY_LOSS_LIMIT)        || 500,
-        maxSimultaneousTrades: parseInt(process.env.DEFAULT_MAX_SIMULTANEOUS_TRADES)   || 5,
-        duplicateWindowSecs:   parseInt(process.env.DEFAULT_DUPLICATE_WINDOW_SECS)     || 30,
-        haltOnDailyLoss:       true,
-        reverseSignals:        false,
-        emailAlerts:           false,
-        hmacSecret:            '',
+        maxPositionSize: 10, dailyLossLimit: 500, maxSimultaneousTrades: 5,
+        duplicateWindowSecs: 30, haltOnDailyLoss: true, reverseSignals: false,
+        emailAlerts: false, hmacSecret: '',
       },
       dailyPnl: 0,
     };
+    _users.set(userId, user);
+    _tokenMap.set(token, userId);
+    log.info('[Store] In-memory demo user ready');
+  },
+};
 
-    this._users.set(userId, user);
-    this._tokenMap.set(token, userId);
-  }
-}
-
-const store = new Store();
-module.exports = { store };
+module.exports = { store, loadOrCreateUser };

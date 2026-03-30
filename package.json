@@ -9,10 +9,18 @@
     "test": "jest --coverage",
     "lint": "eslint src/**/*.js"
   },
-  "keywords": ["tradingview", "webhook", "trade-copier", "metatrader", "tradovate", "dxtrade"],
+  "keywords": [
+    "tradingview",
+    "webhook",
+    "trade-copier",
+    "metatrader",
+    "tradovate",
+    "dxtrade"
+  ],
   "author": "SignalBridge",
   "license": "MIT",
   "dependencies": {
+    "@supabase/supabase-js": "^2.101.0",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
