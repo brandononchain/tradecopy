@@ -293,7 +293,7 @@ textarea{resize:vertical;min-height:80px}
 ══════════════════════════════════════════════════ -->
 <div id="page-webhook" class="page">
   <div class="topbar">
-    <div><div class="page-title">Webhook Setup</div><div class="page-sub">Your TradingView alert endpoint</div></div>
+    <div><div class="page-title">Webhook Setup</div><div class="page-sub">Your TradingView alert endpoint — any symbol, any direction, any size</div></div>
     <div class="topbar-actions">
       <button class="btn btn-danger" onclick="regenerateWebhook()">
         <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7A5 5 0 112 7"/><path d="M12 2v5h-5"/></svg>Regenerate URL
@@ -301,46 +301,133 @@ textarea{resize:vertical;min-height:80px}
     </div>
   </div>
   <div class="content">
-    <div class="alert-info alert-box">📌 Paste this URL into your TradingView alert → Notifications → Webhook URL. Your token is embedded — keep it private.</div>
+
+    <!-- Webhook URL -->
     <div class="panel">
-      <div class="panel-header"><span class="panel-title">Your Webhook Endpoint</span></div>
+      <div class="panel-header"><span class="panel-title">Your Webhook URL</span></div>
       <div class="panel-body">
-        <div class="section-heading">Webhook URL</div>
         <div class="webhook-url-box">
           <div class="webhook-url" id="webhook-url-display">Loading…</div>
           <button class="copy-btn" onclick="copyWebhook()">Copy</button>
         </div>
-        <div class="section-heading" style="margin-top:16px">Test Webhook (dry-run, no real orders)</div>
-        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px">
-          <div class="form-group" style="margin-bottom:0;flex:1"><label>Symbol</label><input id="test-symbol" value="EURUSD" style="max-width:140px"></div>
-          <div class="form-group" style="margin-bottom:0;flex:1"><label>Action</label><select id="test-action" style="max-width:120px"><option>buy</option><option>sell</option></select></div>
-          <div class="form-group" style="margin-bottom:0;flex:1"><label>Qty</label><input id="test-qty" type="number" value="1" step="0.01" style="max-width:100px"></div>
-          <button class="btn btn-primary" onclick="sendTestSignal()">Send Test</button>
-        </div>
-        <div id="test-result" class="hidden"></div>
-        <div class="section-heading" style="margin-top:8px">TradingView Alert Message Template</div>
-        <div class="code-block">{
-  <span style="color:#7dd3fc">"action"</span>:  <span style="color:#a3e635">"{{strategy.order.action}}"</span>,
-  <span style="color:#7dd3fc">"symbol"</span>:  <span style="color:#a3e635">"{{ticker}}"</span>,
-  <span style="color:#7dd3fc">"qty"</span>:     <span style="color:#a3e635">"{{strategy.order.contracts}}"</span>,
-  <span style="color:#7dd3fc">"price"</span>:   <span style="color:#a3e635">"{{close}}"</span>,
-  <span style="color:#7dd3fc">"sl"</span>:      <span style="color:#a3e635">"{{plot_0}}"</span>,
-  <span style="color:#7dd3fc">"tp"</span>:      <span style="color:#a3e635">"{{plot_1}}"</span>,
-  <span style="color:#7dd3fc">"comment"</span>: <span style="color:#a3e635">"{{strategy.order.comment}}"</span>
-}</div>
-        <div class="alert-warn alert-box" style="margin-top:16px">⚠️ Anyone with this URL can send signals to your accounts. Regenerate it if compromised.</div>
+        <p style="font-size:12px;color:var(--muted);margin-top:4px">Paste this into TradingView → Alert → Notifications tab → Webhook URL field.</p>
+        <div class="alert-warn alert-box" style="margin-top:12px">⚠️ Anyone with this URL can trigger orders. Keep it private. Regenerate it immediately if exposed.</div>
       </div>
     </div>
+
+    <!-- Alert templates -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">TradingView Alert Message Templates</span>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="selectTemplate('strategy')" id="tmpl-btn-strategy" style="border-color:var(--accent);color:var(--accent)">Strategy</button>
+          <button class="btn btn-ghost btn-sm" onclick="selectTemplate('manual')" id="tmpl-btn-manual">Manual Alert</button>
+          <button class="btn btn-ghost btn-sm" onclick="selectTemplate('close')" id="tmpl-btn-close">Close Position</button>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <!-- Strategy template -->
+        <div id="tmpl-strategy">
+          <div class="alert-success alert-box">✅ For <strong>Pine Script strategies</strong> — symbol, direction, and size are all pulled dynamically from the strategy. Works for any instrument automatically.</div>
+          <div class="code-block" id="code-strategy">{"action":"{{strategy.order.action}}","symbol":"{{ticker}}","qty":"{{strategy.order.contracts}}","price":"{{close}}","sl":"{{plot_0}}","tp":"{{plot_1}}","comment":"{{strategy.order.comment}}"}</div>
+          <button class="copy-btn" style="margin-top:10px;padding:6px 14px" onclick="copyTemplate('strategy')">Copy Template</button>
+          <div style="margin-top:16px;font-size:12px;color:var(--muted);line-height:1.8">
+            <strong style="color:var(--text)">Field reference:</strong><br>
+            <code style="font-family:var(--mono);color:var(--accent)">{{strategy.order.action}}</code> — automatically <code style="font-family:var(--mono)">buy</code> or <code style="font-family:var(--mono)">sell</code> depending on which side the strategy fired<br>
+            <code style="font-family:var(--mono);color:var(--accent)">{{ticker}}</code> — the chart symbol (e.g. <code style="font-family:var(--mono)">US100</code>, <code style="font-family:var(--mono)">EURUSD</code>, <code style="font-family:var(--mono)">XAUUSD</code>) — works for any instrument<br>
+            <code style="font-family:var(--mono);color:var(--accent)">{{strategy.order.contracts}}</code> — size from your strategy's order quantity setting<br>
+            <code style="font-family:var(--mono);color:var(--accent)">{{plot_0}}</code> / <code style="font-family:var(--mono);color:var(--accent)">{{plot_1}}</code> — optional SL/TP from plotted values; remove these lines if not using them
+          </div>
+        </div>
+
+        <!-- Manual alert template -->
+        <div id="tmpl-manual" class="hidden">
+          <div class="alert-info alert-box">ℹ️ For <strong>manual alerts</strong> (price crossovers, indicator conditions, etc.) where you hardcode the direction. Create one alert per direction — TradingView doesn't auto-fill buy/sell for non-strategy alerts.</div>
+          <div style="display:flex;gap:12px;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="section-heading">BUY Alert Message</div>
+              <div class="code-block">{"action":"buy","symbol":"{{ticker}}","qty":"1","price":"{{close}}"}</div>
+              <button class="copy-btn" style="margin-top:8px;padding:6px 14px" onclick="copyCode('manual-buy')">Copy</button>
+            </div>
+            <div style="flex:1">
+              <div class="section-heading">SELL Alert Message</div>
+              <div class="code-block">{"action":"sell","symbol":"{{ticker}}","qty":"1","price":"{{close}}"}</div>
+              <button class="copy-btn" style="margin-top:8px;padding:6px 14px" onclick="copyCode('manual-sell')">Copy</button>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.8">
+            <strong style="color:var(--text)">To change size:</strong> replace <code style="font-family:var(--mono);color:var(--accent)">"qty":"1"</code> with any number — e.g. <code style="font-family:var(--mono)">"qty":"0.5"</code> for half a lot, <code style="font-family:var(--mono)">"qty":"2"</code> for 2 lots.<br>
+            <strong style="color:var(--text)">Symbol is always dynamic</strong> — <code style="font-family:var(--mono);color:var(--accent)">{{ticker}}</code> picks up whatever chart the alert fires on, so one alert can cover multiple instruments if you apply it to multiple charts.<br>
+            <strong style="color:var(--text)">With SL/TP:</strong> add <code style="font-family:var(--mono);color:var(--accent)">"sl":"1.0800","tp":"1.1000"</code> as fixed prices.
+          </div>
+        </div>
+
+        <!-- Close position template -->
+        <div id="tmpl-close" class="hidden">
+          <div class="alert-info alert-box">ℹ️ Send a <code style="font-family:var(--mono)">close</code> action to close an open position. The broker adapter will close the matching open position for that symbol.</div>
+          <div class="code-block">{"action":"close","symbol":"{{ticker}}","qty":"0"}</div>
+          <button class="copy-btn" style="margin-top:10px;padding:6px 14px" onclick="copyCode('close')">Copy</button>
+          <div style="margin-top:16px;font-size:12px;color:var(--muted);line-height:1.8">
+            <strong style="color:var(--text)">Note:</strong> Close signals require the broker adapter to support position lookup. Currently supported for DX Trade and Tradovate. For MT4/MT5 use the EA's built-in close logic.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Live test panel -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Live Test — Dry Run (no real orders placed)</span></div>
+      <div class="panel-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Fires a simulated signal through the full routing engine. Shows exactly which routes would match, what broker symbol each platform would receive, and at what lot size — without placing any real orders.</p>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Symbol</label>
+            <input id="test-symbol" value="US100" style="width:130px" placeholder="e.g. US100">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Action</label>
+            <select id="test-action" style="width:100px">
+              <option value="buy">BUY</option>
+              <option value="sell">SELL</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Qty / Lots</label>
+            <input id="test-qty" type="number" value="1" step="0.01" min="0.01" style="width:90px">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Stop Loss (optional)</label>
+            <input id="test-sl" placeholder="e.g. 19800" style="width:120px">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Take Profit (optional)</label>
+            <input id="test-tp" placeholder="e.g. 20500" style="width:120px">
+          </div>
+          <button class="btn btn-primary" onclick="sendTestSignal()" style="white-space:nowrap">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+            Send Test
+          </button>
+        </div>
+        <div id="test-result" class="hidden"></div>
+      </div>
+    </div>
+
+    <!-- Security -->
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Webhook Security</span></div>
       <div class="panel-body">
         <div class="form-grid">
-          <div class="form-group"><label>IP Allowlist (optional, comma-separated)</label><input id="wh-ip" placeholder="52.89.214.238, 34.212.75.30" oninput="markSettingsDirty()"></div>
+          <div class="form-group"><label>TradingView IP Allowlist (recommended)</label><input id="wh-ip" placeholder="52.89.214.238, 34.212.75.30, 54.187.27.197" oninput="markSettingsDirty()">
+            <span style="font-size:11px;color:var(--muted)">TradingView webhook IPs: 52.89.214.238, 34.212.75.30, 54.187.27.197, 52.32.178.7</span>
+          </div>
           <div class="form-group"><label>Max Signals per Minute</label><input id="wh-rate" type="number" value="60" oninput="markSettingsDirty()"></div>
         </div>
         <button class="btn btn-primary" onclick="saveSettings()">Save Security Settings</button>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -836,18 +923,68 @@ async function regenerateWebhook() {
   } catch(e) { toast('Failed: ' + e.message, 'error'); }
 }
 
+// ── Template switching ────────────────────────────────────────────────────────
+function selectTemplate(name) {
+  ['strategy','manual','close'].forEach(t => {
+    document.getElementById('tmpl-' + t)?.classList.toggle('hidden', t !== name);
+    const btn = document.getElementById('tmpl-btn-' + t);
+    if (btn) { btn.style.borderColor = t === name ? 'var(--accent)' : ''; btn.style.color = t === name ? 'var(--accent)' : ''; }
+  });
+}
+
+function copyTemplate(name) {
+  const templates = {
+    strategy: '{"action":"{{strategy.order.action}}","symbol":"{{ticker}}","qty":"{{strategy.order.contracts}}","price":"{{close}}","sl":"{{plot_0}}","tp":"{{plot_1}}","comment":"{{strategy.order.comment}}"}',
+  };
+  navigator.clipboard?.writeText(templates[name] || '');
+  toast('Template copied!');
+}
+
+function copyCode(name) {
+  const codes = {
+    'manual-buy':  '{"action":"buy","symbol":"{{ticker}}","qty":"1","price":"{{close}}"}',
+    'manual-sell': '{"action":"sell","symbol":"{{ticker}}","qty":"1","price":"{{close}}"}',
+    'close':       '{"action":"close","symbol":"{{ticker}}","qty":"0"}',
+  };
+  navigator.clipboard?.writeText(codes[name] || '');
+  toast('Copied!');
+}
+
+// ── Test signal ────────────────────────────────────────────────────────────────
 async function sendTestSignal() {
-  const symbol = document.getElementById('test-symbol').value.trim() || 'EURUSD';
+  const symbol = document.getElementById('test-symbol').value.trim() || 'US100';
   const action = document.getElementById('test-action').value;
   const qty    = parseFloat(document.getElementById('test-qty').value) || 1;
+  const sl     = document.getElementById('test-sl')?.value.trim() || null;
+  const tp     = document.getElementById('test-tp')?.value.trim() || null;
   const el     = document.getElementById('test-result');
   el.className = 'alert-info alert-box';
-  el.textContent = 'Sending test…';
+  el.textContent = `Simulating ${action.toUpperCase()} ${symbol} ×${qty}…`;
+
   try {
-    const res = await POST(`/hook/${API_TOKEN}/test`, { symbol, action, qty });
+    const body = { symbol, action, qty };
+    if (sl) body.sl = sl;
+    if (tp) body.tp = tp;
+
+    const res = await POST(`/hook/${API_TOKEN}/test`, body);
+    const matched = res.results || [];
+
+    if (matched.length === 0) {
+      el.className = 'alert-warn alert-box';
+      el.innerHTML = `⚠️ No active routes matched <strong>${symbol}</strong>. ` +
+        `Check your Signal Routes — make sure at least one route is active and its symbol filter includes this symbol (or is blank to match all).`;
+      return;
+    }
+
     el.className = 'alert-success alert-box';
-    el.innerHTML = `<strong>✓ Test OK</strong> — ${res.results?.length || 0} routes matched:<br>` +
-      (res.results||[]).map(r => `&nbsp;&nbsp;${pb(r.platform)} ${r.brokerSymbol} ×${r.qty} → ${r.status}`).join('<br>');
+    el.innerHTML =
+      `<strong>✓ ${matched.length} route${matched.length>1?'s':''} matched</strong> — signal would be routed as:<br><br>` +
+      matched.map(r =>
+        `&nbsp;&nbsp;${pb(r.platform)} &nbsp;<span style="color:var(--accent);font-family:var(--mono)">${r.brokerSymbol}</span>` +
+        `&nbsp;×<span style="font-family:var(--mono)">${r.qty}</span>` +
+        `&nbsp;<span style="font-family:var(--mono);color:var(--muted)">[${r.route}]</span>`
+      ).join('<br>') +
+      `<br><br><span style="color:var(--muted);font-size:11px">No real orders placed — this was a dry run.</span>`;
   } catch(e) {
     el.className = 'alert-danger alert-box';
     el.textContent = '✗ Error: ' + e.message;
