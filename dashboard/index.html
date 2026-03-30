@@ -660,8 +660,8 @@ textarea{resize:vertical;min-height:80px}
         </div>
         <div id="dx-instrument-list" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></div>
         <div style="display:flex;gap:10px;margin-top:16px">
-          <button class="btn btn-primary" onclick="testConn('dxtrade')">Test Connection</button>
-          <button class="btn btn-ghost" onclick="saveConn('dxtrade')">Save</button>
+          <button class="btn btn-primary" id="conn-test-dxtrade" onclick="testConn('dxtrade')">Test Connection</button>
+          <button class="btn btn-ghost" id="conn-save-dxtrade" onclick="saveConn('dxtrade')">Save</button>
         </div>
         <div id="conn-result-dxtrade" class="hidden" style="margin-top:12px"></div>
       </div>
@@ -683,8 +683,8 @@ textarea{resize:vertical;min-height:80px}
           <div class="form-group"><label>EA Magic Number</label><input id="mt5-magic" type="number" value="88001"></div>
         </div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-primary" onclick="testConn('mt5')">Test Connection</button>
-          <button class="btn btn-ghost" onclick="saveConn('mt5')">Save</button>
+          <button class="btn btn-primary" id="conn-test-mt5" onclick="testConn('mt5')">Test Connection</button>
+          <button class="btn btn-ghost" id="conn-save-mt5" onclick="saveConn('mt5')">Save</button>
           <a class="btn btn-ghost" href="/ea/SignalBridge_EA_v2.mq5" download>
             <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v7M4 6l3 3 3-3M2 11h10"/></svg>Download EA
           </a>
@@ -708,8 +708,8 @@ textarea{resize:vertical;min-height:80px}
           <div class="form-group"><label>EA Magic Number</label><input id="mt4-magic" type="number" value="88002"></div>
         </div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-primary" onclick="testConn('mt4')">Test Connection</button>
-          <button class="btn btn-ghost" onclick="saveConn('mt4')">Save</button>
+          <button class="btn btn-primary" id="conn-test-mt4" onclick="testConn('mt4')">Test Connection</button>
+          <button class="btn btn-ghost" id="conn-save-mt4" onclick="saveConn('mt4')">Save</button>
         </div>
         <div id="conn-result-mt4" class="hidden" style="margin-top:12px"></div>
       </div>
@@ -737,8 +737,8 @@ textarea{resize:vertical;min-height:80px}
           <div class="form-group"><label>App Secret</label><input id="tv-appsecret" type="password" placeholder="Application Secret"></div>
         </div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-primary" onclick="testConn('tradovate')">Test Connection</button>
-          <button class="btn btn-ghost" onclick="saveConn('tradovate')">Save</button>
+          <button class="btn btn-primary" id="conn-test-tradovate" onclick="testConn('tradovate')">Test Connection</button>
+          <button class="btn btn-ghost" id="conn-save-tradovate" onclick="saveConn('tradovate')">Save</button>
         </div>
         <div id="conn-result-tradovate" class="hidden" style="margin-top:12px"></div>
       </div>
@@ -1328,90 +1328,198 @@ function exportSymbols() {
 // ══════════════════════════════════════════════════
 // CONNECTORS
 // ══════════════════════════════════════════════════
+
+// Helper: set a field value, skip if field doesn't exist
+function setField(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val ?? '';
+}
+
+// Helper: get a field value safely
+function getField(id, fallback = '') {
+  return document.getElementById(id)?.value ?? fallback;
+}
+
+// Track which passwords are already set server-side (so we show placeholder not actual mask)
+const _savedPasswords = {};
+
 async function loadConnectors() {
   try {
     const data = await GET('/api/connectors');
 
-    // DX Trade
-    if (data.dxtrade) {
-      document.getElementById('dx-host').value      = data.dxtrade.host || '';
-      document.getElementById('dx-username').value  = data.dxtrade.username || '';
-      document.getElementById('dx-accountid').value = data.dxtrade.accountId || '';
+    // ── DX Trade ──────────────────────────────────────────────────────
+    const dx = data.dxtrade || {};
+    setField('dx-host',      dx.host      || '');
+    setField('dx-vendor',    dx.vendor    || '');
+    setField('dx-username',  dx.username  || '');
+    setField('dx-accountid', dx.accountId || '');
+    // Password: show placeholder if set, leave empty if not
+    const dxPwEl = document.getElementById('dx-password');
+    if (dxPwEl) {
+      dxPwEl.value = '';
+      dxPwEl.placeholder = dx.password ? 'Password saved — enter new to change' : 'Your DX Trade password';
+      _savedPasswords.dxtrade = !!dx.password;
     }
-    // MT5
-    if (data.mt5) {
-      document.getElementById('mt5-host').value    = data.mt5.host || '';
-      document.getElementById('mt5-account').value = data.mt5.accountId || '';
+    // Restore instrument IDs
+    if (dx.instrumentIds && Object.keys(dx.instrumentIds).length) {
+      window._dxInstrumentIds = dx.instrumentIds;
+      renderDxInstruments();
     }
-    // MT4
-    if (data.mt4) {
-      document.getElementById('mt4-host').value    = data.mt4.host || '';
-      document.getElementById('mt4-account').value = data.mt4.accountId || '';
+    // Update badge
+    setBadge('dxtrade', dx.host && dx.username && dx.password);
+
+    // ── MT5 ────────────────────────────────────────────────────────────
+    const mt5 = data.mt5 || {};
+    setField('mt5-host',    mt5.host      || '');
+    setField('mt5-account', mt5.accountId || '');
+    setField('mt5-magic',   mt5.magic     || 88001);
+    const mt5PwEl = document.getElementById('mt5-apikey');
+    if (mt5PwEl) {
+      mt5PwEl.value = '';
+      mt5PwEl.placeholder = mt5.apiKey ? 'API key saved — enter new to change' : 'Bridge API key';
+      _savedPasswords.mt5 = !!mt5.apiKey;
     }
-    // Tradovate
-    if (data.tradovate) {
-      document.getElementById('tv-host').value        = data.tradovate.host || 'https://demo.tradovateapi.com';
-      document.getElementById('tv-accountspec').value = data.tradovate.accountSpec || '';
-      document.getElementById('tv-username').value    = data.tradovate.username || '';
+    setBadge('mt5', mt5.host && mt5.apiKey);
+
+    // ── MT4 ────────────────────────────────────────────────────────────
+    const mt4 = data.mt4 || {};
+    setField('mt4-host',    mt4.host      || '');
+    setField('mt4-account', mt4.accountId || '');
+    setField('mt4-magic',   mt4.magic     || 88002);
+    const mt4PwEl = document.getElementById('mt4-apikey');
+    if (mt4PwEl) {
+      mt4PwEl.value = '';
+      mt4PwEl.placeholder = mt4.apiKey ? 'API key saved — enter new to change' : 'Bridge API key';
+      _savedPasswords.mt4 = !!mt4.apiKey;
     }
-  } catch(e) { console.error('Connectors load error:', e); }
+    setBadge('mt4', mt4.host && mt4.apiKey);
+
+    // ── Tradovate ──────────────────────────────────────────────────────
+    const tv = data.tradovate || {};
+    setField('tv-host',        tv.host        || 'https://demo.tradovateapi.com');
+    setField('tv-accountspec', tv.accountSpec  || '');
+    setField('tv-username',    tv.username     || '');
+    setField('tv-appid',       tv.appId        || '');
+    const tvPwEl = document.getElementById('tv-password');
+    if (tvPwEl) {
+      tvPwEl.value = '';
+      tvPwEl.placeholder = tv.password ? 'Password saved — enter new to change' : 'Tradovate password';
+      _savedPasswords.tradovate = !!tv.password;
+    }
+    const tvSecEl = document.getElementById('tv-appsecret');
+    if (tvSecEl) {
+      tvSecEl.value = '';
+      tvSecEl.placeholder = tv.appSecret ? 'Secret saved — enter new to change' : 'Application Secret';
+    }
+    setBadge('tradovate', tv.host && tv.username && tv.password);
+
+  } catch(e) {
+    console.error('Connectors load error:', e);
+  }
+}
+
+function setBadge(platform, isConnected) {
+  const el = document.getElementById(`badge-${platform}`);
+  if (!el) return;
+  if (isConnected) {
+    el.className = 'connected-badge cb-yes';
+    el.textContent = 'CONFIGURED';
+  } else {
+    el.className = 'connected-badge cb-no';
+    el.textContent = 'NOT SET';
+  }
 }
 
 async function saveConn(platform) {
+  // Visual feedback — disable Save button on the card
+  const saveBtn = document.querySelector(`#conn-save-${platform}`);
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
   let body = {};
+
   if (platform === 'dxtrade') {
     body = {
-      host:          document.getElementById('dx-host').value.trim(),
-      vendor:        document.getElementById('dx-vendor').value.trim(),
-      username:      document.getElementById('dx-username').value.trim(),
-      password:      document.getElementById('dx-password').value,
-      accountId:     document.getElementById('dx-accountid').value.trim(),
+      host:          getField('dx-host').replace(/\/+$/, ''),
+      vendor:        getField('dx-vendor'),
+      username:      getField('dx-username'),
+      accountId:     getField('dx-accountid'),
       instrumentIds: window._dxInstrumentIds || {},
     };
+    // Only include password if user typed something new
+    const pw = document.getElementById('dx-password')?.value;
+    if (pw) body.password = pw;
+
   } else if (platform === 'mt5' || platform === 'mt4') {
     body = {
-      host:      document.getElementById(`${platform}-host`).value.trim(),
-      apiKey:    document.getElementById(`${platform}-apikey`).value,
-      accountId: document.getElementById(`${platform}-account`).value.trim(),
-      magic:     parseInt(document.getElementById(`${platform}-magic`).value) || 88001,
+      host:      getField(`${platform}-host`).replace(/\/+$/, ''),
+      accountId: getField(`${platform}-account`),
+      magic:     parseInt(getField(`${platform}-magic`)) || (platform === 'mt5' ? 88001 : 88002),
     };
+    const key = document.getElementById(`${platform}-apikey`)?.value;
+    if (key) body.apiKey = key;
+
   } else if (platform === 'tradovate') {
     body = {
-      host:        document.getElementById('tv-host').value,
-      accountSpec: document.getElementById('tv-accountspec').value.trim(),
-      username:    document.getElementById('tv-username').value.trim(),
-      password:    document.getElementById('tv-password').value,
-      appId:       document.getElementById('tv-appid').value.trim(),
-      appSecret:   document.getElementById('tv-appsecret').value,
+      host:        getField('tv-host'),
+      accountSpec: getField('tv-accountspec'),
+      username:    getField('tv-username'),
+      appId:       getField('tv-appid'),
     };
+    const pw  = document.getElementById('tv-password')?.value;
+    const sec = document.getElementById('tv-appsecret')?.value;
+    if (pw)  body.password  = pw;
+    if (sec) body.appSecret = sec;
   }
+
   try {
     await PUT(`/api/connectors/${platform}`, body);
-    toast(`${platform.toUpperCase()} credentials saved`);
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+    // Reload to refresh placeholders and badge
+    await loadConnectors();
+    toast(`${platform.toUpperCase()} saved ✓`);
+  } catch(e) {
+    toast(`Save failed: ${e.message}`, 'error');
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+  }
 }
 
 async function testConn(platform) {
   const resultEl = document.getElementById(`conn-result-${platform}`);
   resultEl.className = 'alert-info alert-box';
-  resultEl.textContent = 'Testing connection…';
+  resultEl.textContent = 'Saving credentials then testing connection…';
+  resultEl.classList.remove('hidden');
 
-  // Save first so credentials are up to date
+  // Always save first so the server has latest credentials
   await saveConn(platform);
 
+  const testBtn = document.querySelector(`#conn-test-${platform}`);
+  if (testBtn) { testBtn.disabled = true; testBtn.textContent = 'Testing…'; }
+
   try {
+    // testConnection now always returns 200 with status ok|error
     const res = await POST(`/api/connectors/${platform}/test`);
-    resultEl.className = 'alert-success alert-box';
-    resultEl.textContent = `✓ Connected — ${res.message || 'OK'}`;
-    document.getElementById(`badge-${platform}`).className = 'connected-badge cb-yes';
-    document.getElementById(`badge-${platform}`).textContent = 'CONNECTED';
-    toast(`${platform.toUpperCase()} connection successful!`);
+
+    if (res.status === 'ok') {
+      resultEl.className = 'alert-success alert-box';
+      resultEl.textContent = `✓ Connected — ${res.message || 'OK'}`;
+      document.getElementById(`badge-${platform}`).className = 'connected-badge cb-yes';
+      document.getElementById(`badge-${platform}`).textContent = 'CONNECTED';
+      toast(`${platform.toUpperCase()} connection successful!`);
+    } else {
+      // status === 'error' — returned as 200 from our API
+      resultEl.className = 'alert-danger alert-box';
+      resultEl.textContent = `✗ ${res.error || 'Connection failed'}`;
+      document.getElementById(`badge-${platform}`).className = 'connected-badge cb-no';
+      document.getElementById(`badge-${platform}`).textContent = 'FAILED';
+      toast(`${platform.toUpperCase()} failed: ${res.error}`, 'error');
+    }
   } catch(e) {
     resultEl.className = 'alert-danger alert-box';
-    resultEl.textContent = `✗ Failed — ${e.message}`;
+    resultEl.textContent = `✗ ${e.message}`;
     document.getElementById(`badge-${platform}`).className = 'connected-badge cb-no';
     document.getElementById(`badge-${platform}`).textContent = 'FAILED';
-    toast(`${platform.toUpperCase()} connection failed`, 'error');
+  } finally {
+    if (testBtn) { testBtn.disabled = false; testBtn.textContent = 'Test Connection'; }
   }
 }
 
