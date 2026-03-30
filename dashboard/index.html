@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tradekashi — Illuminate Your Edge</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Shippori+Mincho:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#08070a;--bg2:#0f0d14;--bg3:#161320;
@@ -15,7 +15,7 @@
   --glow:rgba(212,175,88,0.15);--glow2:rgba(212,175,88,0.06);
   --mono:'IBM Plex Mono',monospace;
   --sans:'DM Sans',sans-serif;
-  --display:'Shippori Mincho',serif;
+  --display:'Cormorant Garamond',Georgia,serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
@@ -169,7 +169,7 @@ textarea{resize:vertical;min-height:80px}
   <div class="logo">
     <div class="logo-mark">
       <div class="logo-icon" style="background:linear-gradient(135deg,#d4af58,#f5e6b8);box-shadow:0 0 12px rgba(212,175,88,0.4)"><svg viewBox="0 0 16 16" fill="none"><path d="M8 1L10 6.5L15 8L10 9.5L8 15L6 9.5L1 8L6 6.5Z" fill="rgba(8,7,10,0.85)"/><path d="M8 4L9.2 7.3L12.5 8L9.2 8.7L8 12L6.8 8.7L3.5 8L6.8 7.3Z" fill="rgba(8,7,10,0.5)"/></svg></div>
-      <div><div class="logo-text" style="font-family:var(--display);letter-spacing:0.02em;color:var(--accent3)">Tradekashi</div><div class="logo-sub" style="letter-spacing:2px;color:var(--muted)">輝 · ILLUMINATE YOUR EDGE</div></div>
+      <div><div class="logo-text" style="font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:0.04em;color:var(--accent3);line-height:1">Tradekashi</div><div class="logo-sub" style="letter-spacing:2.5px;font-size:9px;margin-top:4px;color:var(--muted)">TRADE COPIER</div></div>
     </div>
   </div>
   <nav class="nav">
@@ -907,13 +907,13 @@ async function loadDashboard() {
     document.getElementById('stat-health').className = 'stat-value green';
     document.getElementById('stat-health-sub').textContent = `v${h.version} · ${new Date(h.ts).toLocaleTimeString()}`;
     document.getElementById('relay-dot').classList.remove('off');
-    document.getElementById('relay-status').textContent = '輝 · LIVE';
+    document.getElementById('relay-status').textContent = '● LIVE';
   } catch {
     document.getElementById('stat-health').textContent = 'ERROR';
     document.getElementById('stat-health').className = 'stat-value';
     document.getElementById('stat-health').style.color = 'var(--danger)';
     document.getElementById('relay-dot').classList.add('off');
-    document.getElementById('relay-status').textContent = '輝 · OFFLINE';
+    document.getElementById('relay-status').textContent = '● OFFLINE';
   }
 
   // Stats
