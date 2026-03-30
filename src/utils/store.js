@@ -54,10 +54,10 @@ async function loadOrCreateUser(userId, token) {
     routes:       [],
     symbolMap:    { ...DEFAULT_SYMBOL_MAP },
     connectors: {
-      mt5:       { type: 'mt5',       host: process.env.MT5_RELAY_HOST || '', apiKey: process.env.MT5_API_KEY || '' },
-      mt4:       { type: 'mt4',       host: process.env.MT4_RELAY_HOST || '', apiKey: process.env.MT4_API_KEY || '' },
-      dxtrade:   { type: 'dxtrade',   host: process.env.DXTRADE_HOST   || '', vendor: process.env.DXTRADE_VENDOR || '', username: process.env.DXTRADE_USERNAME || '', password: process.env.DXTRADE_PASSWORD || '', accountId: process.env.DXTRADE_ACCOUNT_ID || '', instrumentIds: {} },
-      tradovate: { type: 'tradovate', host: process.env.TRADOVATE_HOST  || 'https://demo.tradovateapi.com', apiKey: '', accountSpec: process.env.TRADOVATE_ACCOUNT_SPEC || '' },
+      mt5:       { type: 'mt5',       host: '', apiKey: '' },
+      mt4:       { type: 'mt4',       host: '', apiKey: '' },
+      dxtrade:   { type: 'dxtrade',   host: '', vendor: '', username: '', password: '', accountId: '', instrumentIds: {} },
+      tradovate: { type: 'tradovate', host: 'https://demo.tradovateapi.com', apiKey: '', accountSpec: '' },
     },
     settings: {
       maxPositionSize:       parseFloat(process.env.DEFAULT_MAX_POSITION_SIZE)     || 10,
@@ -256,9 +256,9 @@ const store = {
       routes: [],
       symbolMap:    { ...DEFAULT_SYMBOL_MAP },
       connectors: {
-        mt5:       { type: 'mt5',       host: process.env.MT5_RELAY_HOST || '', apiKey: '' },
-        mt4:       { type: 'mt4',       host: process.env.MT4_RELAY_HOST || '', apiKey: '' },
-        dxtrade:   { type: 'dxtrade',   host: process.env.DXTRADE_HOST || '', vendor: '', username: '', password: '', accountId: '', instrumentIds: {} },
+        mt5:       { type: 'mt5',       host: '', apiKey: '' },
+        mt4:       { type: 'mt4',       host: '', apiKey: '' },
+        dxtrade:   { type: 'dxtrade',   host: '', vendor: '', username: '', password: '', accountId: '', instrumentIds: {} },
         tradovate: { type: 'tradovate', host: 'https://demo.tradovateapi.com', apiKey: '', accountSpec: '' },
       },
       settings: {
