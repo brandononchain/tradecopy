@@ -1,191 +1,124 @@
 'use strict';
 
 /**
- * DX Trade Adapter — Liquid Charts (pro.liquidcharts.com)
+ * Liquid Charts Pro (pro.liquidcharts.com) Adapter
  *
- * DX Trade uses session-based auth, NOT Bearer tokens:
- *   1. POST /api/auth/login  → sets JSESSIONID + DXTFID cookies
- *   2. GET  /               → scrape CSRF meta tag from HTML
- *   3. POST /api/orders/single with cookies + X-CSRF-Token header
+ * IMPORTANT: Liquid Charts Pro is built on FX Blue Labs (fxbluelabs.com)
+ * software — NOT standard DX Trade. It uses a WebSocket-based EA Hub
+ * architecture rather than a REST API.
  *
- * Instrument IDs are numeric and required alongside the symbol string.
- * Find yours by watching a manual order in browser DevTools → Network tab.
+ * How Liquid Charts works:
+ *   - The web platform is a client-side SPA (FX Blue / Figaro)
+ *   - Trading is executed via an MT4/MT5 Expert Advisor running locally
+ *     that connects to the FX Blue Hub via WebSocket
+ *   - There is NO public REST API for placing orders directly
+ *
+ * Integration options:
+ *   OPTION A (Recommended): Use the MT5 adapter instead.
+ *     Liquid Brokers also offers MT5. Connect via that route.
+ *
+ *   OPTION B: FX Blue EA Hub (if you run the EA locally)
+ *     The EA opens a local WebSocket on ws://localhost:31318
+ *     SignalBridge can send orders to it if running on the same machine.
+ *     This does NOT work on cloud deployments like Railway.
+ *
+ *   OPTION C: TradersPost / Webhooks (if Liquid Charts supports it)
+ *     Some brokers on FX Blue support TradersPost webhook integration.
+ *
+ * This adapter implements Option B for local use, and throws a clear
+ * error on cloud deployments explaining the situation.
  */
 
-const axios  = require('axios');
-const https  = require('https');
+const WebSocket = require('ws');
+const { log }   = require('../utils/logger');
 
-// ─── Instrument ID map (Liquid Charts / DX Trade CFD) ────────────────────────
-// Verify via browser DevTools: place a manual order and inspect the POST payload.
-const INSTRUMENT_IDS = {
-  EURUSD: 3438,
-  GBPUSD: 3440,
-  USDJPY: 3427,
-  USDCAD: 3433,
-  USDCHF: 3390,
-  AUDUSD: 3411,
-  NZDUSD: 3398,
-  EURGBP: 3419,
-  EURJPY: 3392,
-  AUDCHF: 3395,
-  XAUUSD: 3406,
-  XAGUSD: 3407,
-  US30:   3351,
-  US500:  3352,
-  NAS100: 3353,
-  BTCUSD: 3425,
-  ETHUSD: 3443,
-  USOIL:  3360,
-};
+// Cache active WS connections: host → ws
+const wsCache = new Map();
 
-// ─── Session cache ────────────────────────────────────────────────────────────
-const sessionCache = new Map();
-
-function makeHttpClient(host) {
-  const jar = {};
-
-  const client = axios.create({
-    baseURL: `https://${host}`,
-    timeout: 10000,
-    httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-  });
-
-  // Capture Set-Cookie headers
-  client.interceptors.response.use(res => {
-    const setCookie = res.headers['set-cookie'] || [];
-    setCookie.forEach(raw => {
-      const [pair] = raw.split(';');
-      const [name, ...rest] = pair.split('=');
-      jar[name.trim()] = rest.join('=').trim();
-    });
-    return res;
-  });
-
-  // Inject cookies into every outgoing request
-  client.interceptors.request.use(cfg => {
-    cfg.headers['Cookie'] = Object.entries(jar)
-      .map(([k, v]) => `${k}=${v}`)
-      .join('; ');
-    return cfg;
-  });
-
-  return { client, jar };
-}
-
-async function login(host, username, password) {
-  const { client } = makeHttpClient(host);
-
-  const resp = await client.post('/api/auth/login', {
-    username,
-    password,
-    vendor: '',  // broker-specific; leave blank for Liquid Charts
-  }, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  if (resp.status !== 200) {
-    throw new Error(`DX Trade login failed: HTTP ${resp.status}`);
-  }
-
-  // Fetch CSRF token from main page HTML
-  const pageResp = await client.get('/', { headers: { Accept: 'text/html' } });
-  const csrfMatch = pageResp.data.match(/<meta[^>]+name=["']csrf["'][^>]+content=["']([^"']+)["']/i)
-    || pageResp.data.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']csrf["']/i);
-
-  const csrf = csrfMatch ? csrfMatch[1] : null;
-  if (!csrf) throw new Error('DX Trade: could not extract CSRF token');
-
-  return { client, csrf };
-}
-
-async function getSession(connector) {
-  const cacheKey = `${connector.host}:${connector.username}`;
-  const cached   = sessionCache.get(cacheKey);
-  if (cached && (Date.now() - cached.createdAt) < 4 * 60 * 60 * 1000) return cached;
-
-  const session = await login(connector.host, connector.username, connector.password);
-  session.createdAt = Date.now();
-  sessionCache.set(cacheKey, session);
-  return session;
-}
-
+/**
+ * Send an order to the FX Blue EA Hub via WebSocket.
+ * Only works when the EA is running locally and the hub is reachable.
+ */
 async function placeOrder(connector, order) {
-  const { client, csrf } = await getSession(connector);
+  const host = connector.hubHost || 'localhost';
+  const port  = connector.hubPort || 31318;
+  const wsUrl = `ws://${host}:${port}/`;
 
-  const symbol       = order.brokerSymbol.toUpperCase();
-  const instrumentId = connector.instrumentIds?.[symbol] ?? INSTRUMENT_IDS[symbol];
-  if (!instrumentId) throw new Error(`DX Trade: no instrument ID for "${symbol}". Check INSTRUMENT_IDS map.`);
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(
+        `Liquid Charts / FX Blue Hub not reachable at ${wsUrl}. ` +
+        `This requires the FX Blue EA running locally — it cannot be reached from a cloud server. ` +
+        `Use the MT5 connector instead if you have an MT5 account with Liquid Brokers.`
+      ));
+    }, 5000);
 
-  const isBuy    = order.action.toUpperCase() === 'BUY';
-  const isMarket = !order.price || order.orderType === 'MARKET';
-  const qty      = parseFloat(order.qty);
+    let ws;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch (e) {
+      clearTimeout(timeout);
+      return reject(new Error(`Cannot connect to FX Blue Hub: ${e.message}`));
+    }
 
-  const payload = {
-    directExchange: false,
-    legs: [{ instrumentId, positionEffect: 'OPENING', ratioQuantity: 1, symbol }],
-    limitPrice:  isMarket ? 0 : parseFloat(order.price),
-    orderSide:   isBuy ? 'BUY' : 'SELL',
-    orderType:   isMarket ? 'MARKET' : 'LIMIT',
-    quantity:    isBuy ? qty : -qty,
-    requestId:   `sb-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    timeInForce: 'GTC',
-  };
+    ws.on('open', () => {
+      clearTimeout(timeout);
 
-  if (order.sl && parseFloat(order.sl) !== 0) {
-    payload.stopLoss = {
-      fixedOffset: 5, fixedPrice: parseFloat(order.sl),
-      orderType: 'STOP', priceFixed: true,
-      quantityForProtection: qty, removed: false,
-    };
-  }
+      // FX Blue EA Hub order format
+      const cmd = JSON.stringify({
+        action:  order.action.toLowerCase() === 'buy' ? 'buy' : 'sell',
+        symbol:  order.brokerSymbol,
+        volume:  parseFloat(order.qty),
+        sl:      order.sl ? parseFloat(order.sl) : 0,
+        tp:      order.tp ? parseFloat(order.tp) : 0,
+        comment: order.comment || 'SignalBridge',
+        magic:   connector.magic || 88001,
+      });
 
-  if (order.tp && parseFloat(order.tp) !== 0) {
-    payload.takeProfit = {
-      fixedOffset: 5, fixedPrice: parseFloat(order.tp),
-      orderType: 'LIMIT', priceFixed: true,
-      quantityForProtection: qty, removed: false,
-    };
-  }
+      ws.send(cmd);
+      ws.close();
 
-  const resp = await client.post('/api/orders/single',
-    JSON.stringify(payload).replace(/ /g, ''), {
-    headers: {
-      'Content-Type':     'application/json; charset=UTF-8',
-      'X-CSRF-Token':     csrf,
-      'X-Requested-With': 'XMLHttpRequest',
-    },
+      resolve({
+        orderId:      `hub-${Date.now()}`,
+        brokerSymbol: order.brokerSymbol,
+        status:       'sent_to_hub',
+      });
+    });
+
+    ws.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(new Error(
+        `FX Blue Hub connection failed: ${err.message}. ` +
+        `Ensure the FX Blue EA is running and connected. ` +
+        `On cloud deployments (Railway/Render), use the MT5 connector instead.`
+      ));
+    });
   });
-
-  if (resp.status !== 200) throw new Error(`DX Trade order rejected: HTTP ${resp.status}`);
-
-  return {
-    orderId:      resp.data?.orderId || payload.requestId,
-    brokerSymbol: symbol,
-    status:       'submitted',
-  };
 }
 
 async function testConnection(connector) {
-  if (!connector.host || !connector.username || !connector.password) {
-    throw new Error('DX Trade requires: host, username, password');
+  const host = connector.hubHost || 'localhost';
+  const port  = connector.hubPort || 31318;
+
+  // On cloud servers, localhost:31318 will always fail
+  // Give a clear, actionable error
+  const isCloud = !['localhost', '127.0.0.1', '::1'].includes(host);
+
+  if (isCloud) {
+    throw new Error(
+      `Liquid Charts Pro uses FX Blue Labs software with a WebSocket EA Hub — ` +
+      `not a REST API. Direct cloud integration is not supported. ` +
+      `Recommended: connect Liquid Brokers via MT5 instead ` +
+      `(they offer MT5 accounts — use the MT5 connector with their server details).`
+    );
   }
-  sessionCache.delete(`${connector.host}:${connector.username}`);
-  await getSession(connector);
-  return { message: 'DX Trade session established', host: connector.host };
-}
 
-async function closePosition(connector, positionCode, symbol, quantity) {
-  const { client, csrf } = await getSession(connector);
-  const instrumentId = INSTRUMENT_IDS[symbol.toUpperCase()];
-  const payload = {
-    legs: [{ instrumentId, positionCode, positionEffect: 'CLOSING', ratioQuantity: 1, symbol }],
-    limitPrice: 0, orderType: 'MARKET',
-    quantity: -Math.abs(quantity), timeInForce: 'GTC',
-  };
-  const resp = await client.post('/api/positions/close', JSON.stringify(payload), {
-    headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-CSRF-Token': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://${host}:${port}/`);
+    const t  = setTimeout(() => { ws.terminate(); reject(new Error('Hub not reachable (timeout)')); }, 3000);
+    ws.on('open',  () => { clearTimeout(t); ws.close(); resolve({ message: 'FX Blue Hub reachable', host, port }); });
+    ws.on('error', (e) => { clearTimeout(t); reject(new Error(`Hub not reachable: ${e.message}`)); });
   });
-  return resp.data;
 }
 
-module.exports = { placeOrder, testConnection, closePosition, INSTRUMENT_IDS };
+module.exports = { placeOrder, testConnection };

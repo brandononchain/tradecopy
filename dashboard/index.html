@@ -453,22 +453,31 @@ textarea{resize:vertical;min-height:80px}
   </div>
   <div class="content">
 
-    <!-- DX TRADE -->
+    <!-- LIQUID CHARTS / FX BLUE -->
     <div class="connector-card">
       <div class="connector-header">
-        <div class="connector-icon" style="background:rgba(0,102,255,0.12);color:#6aa3ff">DX</div>
-        <div><div class="connector-name">DX Trade — Liquid Charts</div><div class="connector-type">Session Auth · pro.liquidcharts.com</div></div>
-        <span class="connected-badge" id="badge-dxtrade">—</span>
+        <div class="connector-icon" style="background:rgba(0,102,255,0.12);color:#6aa3ff">LC</div>
+        <div><div class="connector-name">Liquid Charts Pro</div><div class="connector-type">FX Blue Labs EA Hub · pro.liquidcharts.com</div></div>
+        <span class="connected-badge cb-no" id="badge-dxtrade">READ BELOW</span>
       </div>
       <div class="connector-body">
+        <div class="alert-warn alert-box">
+          ⚠️ <strong>Liquid Charts Pro uses FX Blue Labs software — not a standard REST API.</strong><br><br>
+          It communicates via a WebSocket EA Hub that only works when the FX Blue EA is running locally on your machine. 
+          This <strong>cannot</strong> be reached from a cloud server like Railway.<br><br>
+          <strong>Recommended solution:</strong> Liquid Brokers also offers <strong>MT5 accounts</strong>. 
+          Use the MT5 connector below instead — it works fully in the cloud via the SignalBridge EA bridge.
+          Contact Liquid Brokers support to get your MT5 server, account number, and password.
+        </div>
+        <div class="section-heading" style="margin-top:8px">Local EA Hub (only if running SignalBridge on your own machine)</div>
         <div class="form-grid">
-          <div class="form-group"><label>Host (no https://)</label><input id="dx-host" placeholder="pro.liquidcharts.com"></div>
-          <div class="form-group"><label>Account ID (optional)</label><input id="dx-accountid" placeholder="Your account number"></div>
-          <div class="form-group"><label>Username / Email</label><input id="dx-username" placeholder="Your Liquid Charts login"></div>
-          <div class="form-group"><label>Password</label><input id="dx-password" type="password" placeholder="Your Liquid Charts password"></div>
+          <div class="form-group"><label>Hub Host (default: localhost)</label><input id="dx-host" value="localhost" placeholder="localhost"></div>
+          <div class="form-group"><label>Hub Port (default: 31318)</label><input id="dx-port" type="number" value="31318"></div>
+          <div class="form-group"><label>EA Magic Number</label><input id="dx-magic" type="number" value="88001"></div>
+          <div class="form-group"><label>Account ID (for logging)</label><input id="dx-accountid" placeholder="e.g. DEM_313027_10"></div>
         </div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-primary" onclick="testConn('dxtrade')">Test Connection</button>
+          <button class="btn btn-primary" onclick="testConn('dxtrade')">Test Hub Connection</button>
           <button class="btn btn-ghost" onclick="saveConn('dxtrade')">Save</button>
         </div>
         <div id="conn-result-dxtrade" class="hidden" style="margin-top:12px"></div>
