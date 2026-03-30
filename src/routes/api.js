@@ -92,10 +92,13 @@ router.delete('/symbols/:tvSymbol', auth, (req, res) => {
 
 // ─── Connectors ───────────────────────────────────────────────────────────────
 router.get('/connectors', auth, (req, res) => {
-  // Mask secrets
   const masked = {};
   for (const [k, v] of Object.entries(req.user.connectors)) {
-    masked[k] = { ...v, apiKey: v.apiKey ? '***' + v.apiKey.slice(-4) : null };
+    masked[k] = { ...v };
+    // Never send secrets to the browser
+    if (masked[k].password)  masked[k].password  = masked[k].password  ? '••••••••' : null;
+    if (masked[k].apiKey)    masked[k].apiKey    = masked[k].apiKey    ? '***' + String(masked[k].apiKey).slice(-4)    : null;
+    if (masked[k].appSecret) masked[k].appSecret = masked[k].appSecret ? '***' + String(masked[k].appSecret).slice(-4) : null;
   }
   res.json(masked);
 });
@@ -104,7 +107,19 @@ router.put('/connectors/:platform', auth, (req, res) => {
   const platform = req.params.platform;
   if (!['mt4','mt5','dxtrade','tradovate'].includes(platform))
     return res.status(400).json({ error: 'Unknown platform' });
-  req.user.connectors[platform] = { ...req.user.connectors[platform], ...req.body, type: platform };
+
+  const existing = req.user.connectors[platform] || {};
+  const incoming = { ...req.body };
+
+  // If masked value sent back, keep the existing real value
+  if (incoming.password  === '••••••••') delete incoming.password;
+  if (incoming.apiKey    && incoming.apiKey.startsWith('***'))    delete incoming.apiKey;
+  if (incoming.appSecret && incoming.appSecret.startsWith('***')) delete incoming.appSecret;
+
+  // Strip trailing slashes from host
+  if (incoming.host) incoming.host = incoming.host.replace(/\/+$/, '');
+
+  req.user.connectors[platform] = { ...existing, ...incoming, type: platform };
   res.json({ ok: true });
 });
 
@@ -114,12 +129,22 @@ router.post('/connectors/:platform/test', auth, async (req, res) => {
   const connector = req.user.connectors[platform];
   if (!connector) return res.status(404).json({ error: 'Connector not configured' });
 
+  // Guard: must have a host configured
+  if (!connector.host || connector.host.trim() === '') {
+    return res.status(400).json({
+      status: 'error',
+      platform,
+      error: `No host configured for ${platform}. Please fill in and save the connector settings first.`
+    });
+  }
+
   try {
     const adapter = require(`../adapters/${platform}`);
     const result  = await adapter.testConnection(connector);
     res.json({ status: 'ok', platform, ...result });
   } catch (err) {
-    res.status(502).json({ status: 'error', platform, error: err.message });
+    // Always return JSON, never let this 502
+    res.status(200).json({ status: 'error', platform, error: err.message });
   }
 });
 
