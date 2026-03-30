@@ -23,7 +23,7 @@ async function getAccessToken(connector) {
     appVersion: '1.0',
     cid:        connector.cid        || process.env.TRADOVATE_APP_ID,
     sec:        connector.appSecret  || process.env.TRADOVATE_APP_SECRET,
-    deviceId:   'signalbridge-relay',
+    deviceId:   'tradekashi-relay',
   }, { timeout: 8000 });
 
   const token  = resp.data.accessToken;
@@ -48,7 +48,7 @@ async function placeOrder(connector, order) {
     orderType:    'Market',
     isAutomated:  true,
     ...(order.sl && { stopPrice: parseFloat(order.sl) }),
-    text: order.comment || 'SignalBridge',
+    text: order.comment || 'Tradekashi',
   };
 
   const resp = await axios.post(`${host}/v1/order/placeorder`, payload, {

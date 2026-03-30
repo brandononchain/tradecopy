@@ -1,7 +1,7 @@
 {
-  "name": "signalbridge-trade-copier",
+  "name": "tradekashi",
   "version": "2.1.0",
-  "description": "Cloud webhook relay: TradingView → DX Trade / MT4 / MT5 / Tradovate",
+  "description": "Tradekashi \u2014 Illuminate Your Edge. Cloud webhook relay: TradingView \u2192 DX Trade / MT4 / MT5 / Tradovate",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -10,14 +10,16 @@
     "lint": "eslint src/**/*.js"
   },
   "keywords": [
+    "tradekashi",
     "tradingview",
     "webhook",
     "trade-copier",
     "metatrader",
     "tradovate",
-    "dxtrade"
+    "dxtrade",
+    "copy-trading"
   ],
-  "author": "SignalBridge",
+  "author": "Tradekashi",
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.101.0",

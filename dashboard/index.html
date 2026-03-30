@@ -3,17 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SignalBridge — Trade Copier</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Tradekashi — Illuminate Your Edge</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Shippori+Mincho:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0c0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#7a7f8e;--accent:#00e5a0;--accent2:#0066ff;--warn:#ff9500;--danger:#ff3b30;--mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif}
+:root{
+  --bg:#08070a;--bg2:#0f0d14;--bg3:#161320;
+  --border:rgba(212,175,88,0.1);--border2:rgba(212,175,88,0.2);
+  --text:#f0ece3;--muted:#7a7065;
+  --accent:#d4af58;--accent2:#e8c97a;--accent3:#f5e6b8;
+  --warn:#e8874a;--danger:#c94f3a;--success:#6aab7e;
+  --glow:rgba(212,175,88,0.15);--glow2:rgba(212,175,88,0.06);
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+  --display:'Shippori Mincho',serif;
+}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(ellipse 60% 40% at 20% 10%, rgba(212,175,88,0.04) 0%, transparent 60%),
+  radial-gradient(ellipse 40% 60% at 80% 90%, rgba(212,175,88,0.03) 0%, transparent 60%);
+  pointer-events:none;z-index:0}
+.shell{position:relative;z-index:1}
 .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
-.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden}
+.sidebar{background:var(--bg2);border-right:1px solid rgba(212,175,88,0.12);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden}
 .logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
 .logo-mark{display:flex;align-items:center;gap:9px}
-.logo-icon{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-icon{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo-icon svg{width:16px;height:16px}
 .logo-text{font-size:15px;font-weight:800;letter-spacing:-0.3px;color:#fff}
 .logo-sub{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;letter-spacing:0.5px}
@@ -22,11 +37,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .nav-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;padding:0 10px;margin-bottom:6px;font-family:var(--mono)}
 .nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all 0.15s;border:1px solid transparent}
 .nav-item:hover{background:var(--bg3);color:var(--text)}
-.nav-item.active{background:rgba(0,229,160,0.08);color:var(--accent);border-color:rgba(0,229,160,0.15)}
+.nav-item.active{background:rgba(212,175,88,0.08);color:var(--accent);border-color:rgba(212,175,88,0.18)}
 .nav-item svg{width:15px;height:15px;flex-shrink:0}
-.nav-badge{margin-left:auto;background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;font-family:var(--mono)}
+.nav-badge{margin-left:auto;background:var(--accent);color:#08070a;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;font-family:var(--mono)}
 .status-bar{padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:pulse 2s infinite}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--glow);flex-shrink:0;animation:pulse 2s infinite}
 .status-dot.off{background:var(--danger)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 .status-text{font-size:11px;color:var(--muted);font-family:var(--mono)}
@@ -39,7 +54,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .btn:disabled{opacity:0.5;cursor:not-allowed}
 .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border2)}
 .btn-ghost:hover:not(:disabled){background:var(--bg3);color:var(--text)}
-.btn-primary{background:var(--accent);color:#000}
+.btn-primary{background:var(--accent);color:#08070a;text-shadow:none}
 .btn-primary:hover:not(:disabled){filter:brightness(1.1)}
 .btn-danger{background:rgba(255,59,48,0.12);color:var(--danger);border:1px solid rgba(255,59,48,0.2)}
 .btn-danger:hover:not(:disabled){background:rgba(255,59,48,0.2)}
@@ -58,7 +73,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .stat-delta.up{color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
 .grid3{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
-.panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:18px}
+.panel{background:var(--bg2);border:1px solid rgba(212,175,88,0.1);border-radius:10px;overflow:hidden;margin-bottom:18px}
 .panel-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .panel-title{font-size:13px;font-weight:600}
 .panel-body{padding:16px 18px}
@@ -76,7 +91,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .log-item:hover{background:var(--bg3)}
 .log-time{color:var(--muted)}
 .log-status{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap}
-.ls-ok{background:rgba(0,229,160,0.1);color:var(--accent)}
+.ls-ok{background:rgba(212,175,88,0.1);color:var(--accent)}
 .ls-err{background:rgba(255,59,48,0.12);color:var(--danger)}
 .ls-pending{background:rgba(255,149,0,0.1);color:var(--warn)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -84,12 +99,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .form-group.full{grid-column:1/-1}
 label{font-size:12px;color:var(--muted);font-weight:500}
 input,select,textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color 0.15s;width:100%}
-input:focus,select:focus,textarea:focus{border-color:rgba(0,229,160,0.4)}
+input:focus,select:focus,textarea:focus{border-color:rgba(212,175,88,0.45)}
 select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%237a7f8e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer}
 textarea{resize:vertical;min-height:80px}
 .toggle{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .toggle-switch{width:36px;height:20px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;cursor:pointer;position:relative;transition:all 0.2s;flex-shrink:0}
-.toggle-switch.on{background:rgba(0,229,160,0.25);border-color:rgba(0,229,160,0.4)}
+.toggle-switch.on{background:rgba(212,175,88,0.2);border-color:rgba(212,175,88,0.4)}
 .toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:all 0.2s}
 .toggle-switch.on::after{left:19px;background:var(--accent)}
 .toggle-label{font-size:13px;color:var(--text)}
@@ -103,7 +118,7 @@ textarea{resize:vertical;min-height:80px}
 .connector-name{font-size:14px;font-weight:700}
 .connector-type{font-size:11px;color:var(--muted);font-family:var(--mono)}
 .connected-badge{margin-left:auto;font-size:11px;padding:3px 10px;border-radius:5px;font-weight:700;font-family:var(--mono);white-space:nowrap}
-.cb-yes{background:rgba(0,229,160,0.1);color:var(--accent);border:1px solid rgba(0,229,160,0.2)}
+.cb-yes{background:rgba(212,175,88,0.1);color:var(--accent);border:1px solid rgba(0,229,160,0.2)}
 .cb-no{background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
 .connector-body{padding:16px 18px}
 .sym-table{width:100%;border-collapse:collapse}
@@ -111,17 +126,17 @@ textarea{resize:vertical;min-height:80px}
 .sym-table td{padding:8px 10px;border-top:1px solid var(--border);font-size:12px;font-family:var(--mono)}
 .sym-table tr:hover td{background:var(--bg3)}
 .tag{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600}
-.tag-fx{background:rgba(0,229,160,0.1);color:var(--accent)}
+.tag-fx{background:rgba(212,175,88,0.1);color:var(--accent)}
 .tag-futures{background:rgba(0,102,255,0.12);color:#6aa3ff}
 .tag-index{background:rgba(160,100,255,0.12);color:#bf8fff}
 .tag-crypto{background:rgba(255,149,0,0.12);color:#ffb340}
 .alert-box{border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.6}
 .alert-info{background:rgba(0,102,255,0.08);border:1px solid rgba(0,102,255,0.2);color:#6aa3ff}
 .alert-warn{background:rgba(255,149,0,0.08);border:1px solid rgba(255,149,0,0.2);color:#ffb340}
-.alert-success{background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);color:var(--accent)}
+.alert-success{background:rgba(212,175,88,0.06);border:1px solid rgba(212,175,88,0.2);color:var(--accent)}
 .alert-danger{background:rgba(255,59,48,0.08);border:1px solid rgba(255,59,48,0.2);color:var(--danger)}
-.live-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.2);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:700}
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite}
+.live-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(212,175,88,0.08);border:1px solid rgba(212,175,88,0.25);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:700}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 4px var(--accent);animation:pulse 1.5s infinite}
 .chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--muted);font-family:var(--mono)}
 .empty-state{text-align:center;padding:40px;color:var(--muted);font-size:13px}
 .empty-state svg{width:32px;height:32px;margin:0 auto 12px;display:block;opacity:0.3}
@@ -130,11 +145,11 @@ textarea{resize:vertical;min-height:80px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:13px;font-family:var(--mono);z-index:9999;transition:all 0.3s;transform:translateY(0);display:flex;align-items:center;gap:8px;max-width:320px}
 .toast.hidden{transform:translateY(80px);opacity:0;pointer-events:none}
-.toast.success{border-color:rgba(0,229,160,0.3);color:var(--accent)}
+.toast.success{border-color:rgba(212,175,88,0.35);color:var(--accent)}
 .toast.error{border-color:rgba(255,59,48,0.3);color:var(--danger)}
 .flow-diagram{display:flex;align-items:center;justify-content:center;gap:0;padding:24px 16px;overflow-x:auto;flex-wrap:nowrap}
 .flow-node{background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px 16px;text-align:center;min-width:100px}
-.flow-node.hl{border-color:rgba(0,229,160,0.35);background:rgba(0,229,160,0.06)}
+.flow-node.hl{border-color:rgba(212,175,88,0.35);background:rgba(212,175,88,0.05)}
 .flow-node-icon{font-size:20px;margin-bottom:6px}
 .flow-node-label{font-size:11px;font-weight:700}
 .flow-node-sub{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:3px}
@@ -153,8 +168,8 @@ textarea{resize:vertical;min-height:80px}
 <aside class="sidebar">
   <div class="logo">
     <div class="logo-mark">
-      <div class="logo-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M8 2L14 5.5V10.5L8 14L2 10.5V5.5L8 2Z" fill="#000"/><path d="M8 6L11 7.5V10.5L8 12L5 10.5V7.5L8 6Z" fill="rgba(0,0,0,0.4)"/></svg></div>
-      <div><div class="logo-text">SignalBridge</div><div class="logo-sub">TRADE COPIER v2.1</div></div>
+      <div class="logo-icon" style="background:linear-gradient(135deg,#d4af58,#f5e6b8);box-shadow:0 0 12px rgba(212,175,88,0.4)"><svg viewBox="0 0 16 16" fill="none"><path d="M8 1L10 6.5L15 8L10 9.5L8 15L6 9.5L1 8L6 6.5Z" fill="rgba(8,7,10,0.85)"/><path d="M8 4L9.2 7.3L12.5 8L9.2 8.7L8 12L6.8 8.7L3.5 8L6.8 7.3Z" fill="rgba(8,7,10,0.5)"/></svg></div>
+      <div><div class="logo-text" style="font-family:var(--display);letter-spacing:0.02em;color:var(--accent3)">Tradekashi</div><div class="logo-sub" style="letter-spacing:2px;color:var(--muted)">輝 · ILLUMINATE YOUR EDGE</div></div>
     </div>
   </div>
   <nav class="nav">
@@ -211,7 +226,7 @@ textarea{resize:vertical;min-height:80px}
 ══════════════════════════════════════════════════ -->
 <div id="page-dashboard" class="page active">
   <div class="topbar">
-    <div><div class="page-title">Dashboard</div><div class="page-sub">Live signal monitoring & routing status</div></div>
+    <div><div class="page-title">Dashboard</div><div class="page-sub">Illuminate every signal — live routing status</div></div>
     <div class="topbar-actions">
       <div class="live-pill"><div class="live-dot"></div><span id="live-route-count">— routes active</span></div>
       <button class="btn btn-ghost" onclick="loadDashboard()">
@@ -233,7 +248,7 @@ textarea{resize:vertical;min-height:80px}
         <div class="flow-arrow">→</div>
         <div class="flow-node hl"><div class="flow-node-icon">🔗</div><div class="flow-node-label">Webhook</div><div class="flow-node-sub">POST /signal</div></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-node hl"><div class="flow-node-icon">⚡</div><div class="flow-node-label">SignalBridge</div><div class="flow-node-sub">Parse + Map</div></div>
+        <div class="flow-node hl"><div class="flow-node-icon">⚡</div><div class="flow-node-label">Tradekashi</div><div class="flow-node-sub">Parse + Map</div></div>
         <div class="flow-arrow">→</div>
         <div class="flow-node"><div class="flow-node-icon">🔀</div><div class="flow-node-label">Router</div><div class="flow-node-sub">Fan-out</div></div>
         <div class="flow-arrow">→</div>
@@ -293,7 +308,7 @@ textarea{resize:vertical;min-height:80px}
 ══════════════════════════════════════════════════ -->
 <div id="page-webhook" class="page">
   <div class="topbar">
-    <div><div class="page-title">Webhook Setup</div><div class="page-sub">Your TradingView alert endpoint — any symbol, any direction, any size</div></div>
+    <div><div class="page-title">Webhook Setup</div><div class="page-sub">Your illuminated signal gateway — any symbol, direction, size</div></div>
     <div class="topbar-actions">
       <button class="btn btn-danger" onclick="regenerateWebhook()">
         <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7A5 5 0 112 7"/><path d="M12 2v5h-5"/></svg>Regenerate URL
@@ -675,9 +690,9 @@ textarea{resize:vertical;min-height:80px}
         <span class="connected-badge" id="badge-mt5">—</span>
       </div>
       <div class="connector-body">
-        <div class="alert-info alert-box">📦 Install <strong>SignalBridge_EA_v2.ex5</strong> on your MT5 terminal. Enable WebRequests for your relay host in Tools → Options → Expert Advisors.</div>
+        <div class="alert-info alert-box">📦 Install <strong>Tradekashi_EA_v2.ex5</strong> on your MT5 terminal. Enable WebRequests for your relay host in Tools → Options → Expert Advisors.</div>
         <div class="form-grid">
-          <div class="form-group"><label>Bridge Relay Host</label><input id="mt5-host" placeholder="mt5-relay.signalbridge.io"></div>
+          <div class="form-group"><label>Bridge Relay Host</label><input id="mt5-host" placeholder="mt5-relay.tradekashi.io"></div>
           <div class="form-group"><label>API Key</label><input id="mt5-apikey" type="password" placeholder="Bridge API key"></div>
           <div class="form-group"><label>Account Number</label><input id="mt5-account" placeholder="MT5 account number"></div>
           <div class="form-group"><label>EA Magic Number</label><input id="mt5-magic" type="number" value="88001"></div>
@@ -685,7 +700,7 @@ textarea{resize:vertical;min-height:80px}
         <div style="display:flex;gap:10px">
           <button class="btn btn-primary" id="conn-test-mt5" onclick="testConn('mt5')">Test Connection</button>
           <button class="btn btn-ghost" id="conn-save-mt5" onclick="saveConn('mt5')">Save</button>
-          <a class="btn btn-ghost" href="/ea/SignalBridge_EA_v2.mq5" download>
+          <a class="btn btn-ghost" href="/ea/Tradekashi_EA_v2.mq5" download>
             <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v7M4 6l3 3 3-3M2 11h10"/></svg>Download EA
           </a>
         </div>
@@ -702,7 +717,7 @@ textarea{resize:vertical;min-height:80px}
       </div>
       <div class="connector-body">
         <div class="form-grid">
-          <div class="form-group"><label>Bridge Relay Host</label><input id="mt4-host" placeholder="mt4-relay.signalbridge.io"></div>
+          <div class="form-group"><label>Bridge Relay Host</label><input id="mt4-host" placeholder="mt4-relay.tradekashi.io"></div>
           <div class="form-group"><label>API Key</label><input id="mt4-apikey" type="password" placeholder="Bridge API key"></div>
           <div class="form-group"><label>Account Number</label><input id="mt4-account" placeholder="MT4 account number"></div>
           <div class="form-group"><label>EA Magic Number</label><input id="mt4-magic" type="number" value="88002"></div>
@@ -751,7 +766,7 @@ textarea{resize:vertical;min-height:80px}
 ══════════════════════════════════════════════════ -->
 <div id="page-settings" class="page">
   <div class="topbar">
-    <div><div class="page-title">Settings</div><div class="page-sub">Global risk controls & relay configuration</div></div>
+    <div><div class="page-title">Settings</div><div class="page-sub">Risk controls & relay configuration</div></div>
     <div class="topbar-actions"><button class="btn btn-primary" onclick="saveSettings()">Save All Settings</button></div>
   </div>
   <div class="content">
@@ -892,13 +907,13 @@ async function loadDashboard() {
     document.getElementById('stat-health').className = 'stat-value green';
     document.getElementById('stat-health-sub').textContent = `v${h.version} · ${new Date(h.ts).toLocaleTimeString()}`;
     document.getElementById('relay-dot').classList.remove('off');
-    document.getElementById('relay-status').textContent = 'CLOUD RELAY · LIVE';
+    document.getElementById('relay-status').textContent = '輝 · LIVE';
   } catch {
     document.getElementById('stat-health').textContent = 'ERROR';
     document.getElementById('stat-health').className = 'stat-value';
     document.getElementById('stat-health').style.color = 'var(--danger)';
     document.getElementById('relay-dot').classList.add('off');
-    document.getElementById('relay-status').textContent = 'RELAY OFFLINE';
+    document.getElementById('relay-status').textContent = '輝 · OFFLINE';
   }
 
   // Stats
@@ -1321,7 +1336,7 @@ function exportSymbols() {
   const csv = rows.map(r => r.join(',')).join('\n');
   const a   = document.createElement('a');
   a.href    = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = 'signalbridge-symbols.csv';
+  a.download = 'tradekashi-symbols.csv';
   a.click();
 }
 

@@ -1,4 +1,4 @@
-# SignalBridge — Trade Copier
+# Tradekashi — Trade Copier
 
 > Cloud webhook relay: receive TradingView alerts → route live orders to DX Trade, MT4/MT5, and Tradovate.
 
@@ -15,7 +15,7 @@ TradingView Alert (POST JSON)
 https://your-relay/hook/:token/signal
          │
     ┌────┴─────────────────────────────┐
-    │  SignalBridge Relay              │
+    │  Tradekashi Relay              │
     │  1. Validate payload             │
     │  2. Deduplicate signal           │
     │  3. Check risk limits            │
@@ -72,11 +72,11 @@ https://your-domain.com/hook/YOUR_TOKEN/signal
 
 ## MT4 / MT5 Setup
 
-1. Copy `ea/SignalBridge_EA_v2.mq5` → your `MQL5/Experts/` folder
+1. Copy `ea/Tradekashi_EA_v2.mq5` → your `MQL5/Experts/` folder
 2. Compile it in MetaEditor (F7)
 3. Attach to any chart (e.g. EURUSD M1)
 4. In EA Inputs set:
-   - `ApiKey` = your SignalBridge API key
+   - `ApiKey` = your Tradekashi API key
    - `RelayHost` = your relay hostname
 5. In MT5: **Tools → Options → Expert Advisors → Allow WebRequests** for your relay domain
 
@@ -168,8 +168,8 @@ Connect this repo → New Web Service → `node src/server.js`
 
 ### Docker
 ```bash
-docker build -t signalbridge .
-docker run -p 3000:3000 --env-file .env signalbridge
+docker build -t tradekashi .
+docker run -p 3000:3000 --env-file .env tradekashi
 ```
 
 ### Fly.io
@@ -195,4 +195,4 @@ Configure via dashboard or `PATCH /api/settings`:
 
 ## License
 
-MIT © SignalBridge
+MIT © Tradekashi

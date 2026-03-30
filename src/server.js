@@ -102,7 +102,7 @@ const PORT = process.env.PORT || 3000;
 // Bootstrap store (loads all users from Supabase) then start listening
 store.bootstrap().then(() => {
   server.listen(PORT, () => {
-    log.info(`SignalBridge running on :${PORT}`);
+    log.info(`Tradekashi running on :${PORT}`);
     log.info(`Dashboard: ${DASHBOARD}`);
     log.info(`Supabase: ${process.env.SUPABASE_URL ? 'connected' : 'in-memory fallback'}`);
   });

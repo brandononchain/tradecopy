@@ -69,7 +69,7 @@ async function dispatchToRoute(user, route, signal) {
     price:     signal.price,
     sl:        signal.sl,
     tp:        signal.tp,
-    comment:   signal.comment || 'SignalBridge',
+    comment:   signal.comment || 'Tradekashi',
     orderType: route.orderType || 'MARKET',
   };
 

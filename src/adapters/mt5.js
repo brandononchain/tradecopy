@@ -2,7 +2,7 @@
 
 /**
  * MT4 / MT5 Adapter
- * Communicates with the SignalBridge EA via a lightweight relay bridge.
+ * Communicates with the Tradekashi EA via a lightweight relay bridge.
  * The EA polls /pending and ACKs completed orders back via /ack.
  *
  * The relay bridge is a small HTTP proxy that queues orders
