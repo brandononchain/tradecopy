@@ -6,1259 +6,1189 @@
 <title>SignalBridge — Trade Copier</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0c0f;
-    --bg2: #111318;
-    --bg3: #181b22;
-    --border: rgba(255,255,255,0.07);
-    --border2: rgba(255,255,255,0.13);
-    --text: #e8eaf0;
-    --muted: #7a7f8e;
-    --accent: #00e5a0;
-    --accent2: #0066ff;
-    --warn: #ff9500;
-    --danger: #ff3b30;
-    --success: #00e5a0;
-    --mono: 'JetBrains Mono', monospace;
-    --sans: 'Syne', sans-serif;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
-  
-  /* Layout */
-  .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
-  
-  /* Sidebar */
-  .sidebar {
-    background: var(--bg2);
-    border-right: 1px solid var(--border);
-    padding: 0;
-    display: flex; flex-direction: column;
-    position: sticky; top: 0; height: 100vh;
-  }
-  .logo {
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-  .logo-mark { display: flex; align-items: center; gap: 9px; }
-  .logo-icon {
-    width: 30px; height: 30px;
-    background: var(--accent);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .logo-icon svg { width: 16px; height: 16px; }
-  .logo-text { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; color: #fff; }
-  .logo-sub { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 2px; letter-spacing: 0.5px; }
-
-  .nav { padding: 12px 10px; flex: 1; }
-  .nav-section { margin-bottom: 20px; }
-  .nav-label { font-size: 10px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; padding: 0 10px; margin-bottom: 6px; font-family: var(--mono); }
-  .nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 10px;
-    border-radius: 7px;
-    cursor: pointer;
-    font-size: 13px; font-weight: 500;
-    color: var(--muted);
-    transition: all 0.15s;
-    border: 1px solid transparent;
-  }
-  .nav-item:hover { background: var(--bg3); color: var(--text); }
-  .nav-item.active { background: rgba(0,229,160,0.08); color: var(--accent); border-color: rgba(0,229,160,0.15); }
-  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
-  .nav-badge { margin-left: auto; background: var(--accent); color: #000; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; font-family: var(--mono); }
-
-  .status-bar {
-    padding: 12px 14px;
-    border-top: 1px solid var(--border);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-  .status-text { font-size: 11px; color: var(--muted); font-family: var(--mono); }
-
-  /* Main */
-  .main { display: flex; flex-direction: column; overflow: hidden; }
-  .topbar {
-    padding: 16px 28px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-    background: var(--bg);
-    position: sticky; top: 0; z-index: 10;
-  }
-  .page-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
-  .page-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .topbar-actions { display: flex; gap: 10px; align-items: center; }
-
-  .btn {
-    padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 600;
-    cursor: pointer; border: none; font-family: var(--sans);
-    display: flex; align-items: center; gap: 6px; transition: all 0.15s;
-  }
-  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border2); }
-  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-primary:hover { filter: brightness(1.1); }
-  .btn-danger { background: rgba(255,59,48,0.12); color: var(--danger); border: 1px solid rgba(255,59,48,0.2); }
-  .btn-danger:hover { background: rgba(255,59,48,0.2); }
-  .btn svg { width: 14px; height: 14px; }
-
-  /* Content */
-  .content { padding: 24px 28px; flex: 1; overflow-y: auto; }
-
-  /* Tabs */
-  .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg2); padding: 4px; border-radius: 9px; border: 1px solid var(--border); width: fit-content; }
-  .tab { padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); transition: all 0.15s; }
-  .tab.active { background: var(--bg3); color: var(--text); }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-
-  /* Stats row */
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
-  .stat-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px 18px;
-  }
-  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-family: var(--mono); }
-  .stat-value { font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing: -1px; font-family: var(--mono); }
-  .stat-value.green { color: var(--accent); }
-  .stat-value.blue { color: var(--accent2); }
-  .stat-value.warn { color: var(--warn); }
-  .stat-delta { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
-  .stat-delta.up { color: var(--accent); }
-
-  /* Grid 2col */
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
-  .grid3 { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 24px; }
-
-  /* Panel */
-  .panel {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .panel-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .panel-title { font-size: 13px; font-weight: 600; }
-  .panel-body { padding: 16px 18px; }
-
-  /* Webhook box */
-  .webhook-url-box {
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    padding: 12px 14px;
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 14px;
-  }
-  .webhook-url { font-family: var(--mono); font-size: 11px; color: var(--accent); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .copy-btn {
-    background: var(--bg2); border: 1px solid var(--border2); color: var(--muted);
-    padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 11px;
-    font-family: var(--mono); white-space: nowrap; transition: all 0.15s;
-  }
-  .copy-btn:hover { color: var(--text); border-color: var(--border); }
-
-  /* Payload template */
-  .code-block {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: #a8b4c4;
-    white-space: pre;
-    overflow-x: auto;
-    line-height: 1.7;
-  }
-  .code-key { color: #7dd3fc; }
-  .code-str { color: #a3e635; }
-  .code-var { color: #f9a8d4; }
-  .code-comment { color: #4a5568; }
-
-  /* Route list */
-  .route-list { display: flex; flex-direction: column; gap: 10px; }
-  .route-item {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .route-active-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .route-active-dot.on { background: var(--accent); }
-  .route-active-dot.off { background: var(--muted); }
-  .route-name { font-size: 13px; font-weight: 600; flex: 1; }
-  .route-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); }
-  .route-platform { margin-left: auto; }
-
-  /* Platform badge */
-  .platform-badge {
-    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 5px;
-    font-family: var(--mono); letter-spacing: 0.3px;
-  }
-  .pb-dxtrade { background: rgba(0,102,255,0.15); color: #6aa3ff; border: 1px solid rgba(0,102,255,0.25); }
-  .pb-mt4 { background: rgba(255,149,0,0.12); color: #ffb340; border: 1px solid rgba(255,149,0,0.2); }
-  .pb-mt5 { background: rgba(255,149,0,0.12); color: #ffb340; border: 1px solid rgba(255,149,0,0.2); }
-  .pb-tradovate { background: rgba(160,100,255,0.12); color: #bf8fff; border: 1px solid rgba(160,100,255,0.2); }
-  .pb-tv { background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.2); }
-
-  /* Symbol map table */
-  .sym-table { width: 100%; border-collapse: collapse; }
-  .sym-table th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 0 10px 10px; text-align: left; font-family: var(--mono); }
-  .sym-table td { padding: 8px 10px; border-top: 1px solid var(--border); font-size: 12px; font-family: var(--mono); }
-  .sym-table tr:hover td { background: var(--bg3); }
-  .sym-arrow { color: var(--muted); padding: 0 4px; }
-  .tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
-  .tag-fx { background: rgba(0,229,160,0.1); color: var(--accent); }
-  .tag-fut { background: rgba(0,102,255,0.12); color: #6aa3ff; }
-  .tag-idx { background: rgba(160,100,255,0.12); color: #bf8fff; }
-  .tag-crypto { background: rgba(255,149,0,0.12); color: #ffb340; }
-
-  /* Log feed */
-  .log-feed { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
-  .log-item {
-    padding: 8px 10px;
-    border-radius: 5px;
-    display: grid; grid-template-columns: auto 1fr auto auto;
-    gap: 10px; align-items: center;
-    font-family: var(--mono); font-size: 11px;
-  }
-  .log-item:hover { background: var(--bg3); }
-  .log-time { color: var(--muted); white-space: nowrap; }
-  .log-msg { color: var(--text); }
-  .log-sym { color: var(--accent); font-weight: 600; }
-  .log-status { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
-  .ls-ok { background: rgba(0,229,160,0.1); color: var(--accent); }
-  .ls-err { background: rgba(255,59,48,0.12); color: var(--danger); }
-  .ls-pending { background: rgba(255,149,0,0.1); color: var(--warn); }
-
-  /* Form styles */
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-  .form-group.full { grid-column: 1 / -1; }
-  label { font-size: 12px; color: var(--muted); font-weight: 500; }
-  input, select, textarea {
-    background: var(--bg3); border: 1px solid var(--border2); border-radius: 7px;
-    padding: 9px 12px; color: var(--text); font-family: var(--sans); font-size: 13px;
-    outline: none; transition: border-color 0.15s;
-  }
-  input:focus, select:focus, textarea:focus { border-color: rgba(0,229,160,0.4); }
-  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%237a7f8e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
-  textarea { resize: vertical; min-height: 80px; }
-  .toggle { display: flex; align-items: center; gap: 10px; }
-  .toggle-switch {
-    width: 36px; height: 20px; background: var(--bg3); border: 1px solid var(--border2);
-    border-radius: 10px; cursor: pointer; position: relative; transition: all 0.2s;
-  }
-  .toggle-switch.on { background: rgba(0,229,160,0.25); border-color: rgba(0,229,160,0.4); }
-  .toggle-switch::after {
-    content: ''; position: absolute; top: 3px; left: 3px;
-    width: 12px; height: 12px; border-radius: 50%; background: var(--muted);
-    transition: all 0.2s;
-  }
-  .toggle-switch.on::after { left: 19px; background: var(--accent); }
-  .toggle-label { font-size: 12px; color: var(--text); }
-
-  /* Connector card */
-  .connector-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 16px;
-  }
-  .connector-header {
-    padding: 14px 18px;
-    display: flex; align-items: center; gap: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .connector-icon {
-    width: 36px; height: 36px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px;
-  }
-  .connector-name { font-size: 14px; font-weight: 700; }
-  .connector-type { font-size: 11px; color: var(--muted); font-family: var(--mono); }
-  .connected-badge { margin-left: auto; font-size: 11px; padding: 3px 10px; border-radius: 5px; font-weight: 700; font-family: var(--mono); }
-  .cb-yes { background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.2); }
-  .cb-no { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
-  .connector-body { padding: 16px 18px; }
-
-  /* Flow diagram */
-  .flow-diagram { display: flex; align-items: center; justify-content: center; gap: 0; padding: 24px 16px; overflow-x: auto; }
-  .flow-node {
-    background: var(--bg3); border: 1px solid var(--border2); border-radius: 9px;
-    padding: 12px 16px; text-align: center; min-width: 110px;
-  }
-  .flow-node-icon { font-size: 22px; margin-bottom: 6px; }
-  .flow-node-label { font-size: 11px; font-weight: 700; color: var(--text); }
-  .flow-node-sub { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 3px; }
-  .flow-arrow { padding: 0 10px; color: var(--muted); font-size: 18px; flex-shrink: 0; }
-  .flow-node.highlight { border-color: rgba(0,229,160,0.35); background: rgba(0,229,160,0.06); }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-  /* Section heading */
-  .section-heading { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; font-family: var(--mono); }
-
-  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
-
-  .empty-state { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
-
-  /* Alert box */
-  .alert-box { border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; }
-  .alert-info { background: rgba(0,102,255,0.08); border: 1px solid rgba(0,102,255,0.2); color: #6aa3ff; }
-  .alert-warn { background: rgba(255,149,0,0.08); border: 1px solid rgba(255,149,0,0.2); color: #ffb340; }
-  .alert-success { background: rgba(0,229,160,0.08); border: 1px solid rgba(0,229,160,0.2); color: var(--accent); }
-
-  /* Symbol map add row */
-  .sym-add-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
-  .sym-add-row input { flex: 1; }
-  .sym-add-row select { flex: 1; }
-  .sym-add-row .btn { white-space: nowrap; }
-
-  /* Chip */
-  .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
-
-  /* Live indicator */
-  .live-pill { display: inline-flex; align-items: center; gap: 5px; background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.2); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--accent); font-family: var(--mono); font-weight: 700; }
-  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
-
-  /* Hidden */
-  .hidden { display: none !important; }
+:root{--bg:#0a0c0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#7a7f8e;--accent:#00e5a0;--accent2:#0066ff;--warn:#ff9500;--danger:#ff3b30;--mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden}
+.logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.logo-mark{display:flex;align-items:center;gap:9px}
+.logo-icon{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px}
+.logo-text{font-size:15px;font-weight:800;letter-spacing:-0.3px;color:#fff}
+.logo-sub{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;letter-spacing:0.5px}
+.nav{padding:12px 10px;flex:1;overflow-y:auto}
+.nav-section{margin-bottom:20px}
+.nav-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;padding:0 10px;margin-bottom:6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all 0.15s;border:1px solid transparent}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:rgba(0,229,160,0.08);color:var(--accent);border-color:rgba(0,229,160,0.15)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;font-family:var(--mono)}
+.status-bar{padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:pulse 2s infinite}
+.status-dot.off{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.status-text{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:10}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-0.3px}
+.page-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.btn{padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--sans);display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;text-decoration:none}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border2)}
+.btn-ghost:hover:not(:disabled){background:var(--bg3);color:var(--text)}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover:not(:disabled){filter:brightness(1.1)}
+.btn-danger{background:rgba(255,59,48,0.12);color:var(--danger);border:1px solid rgba(255,59,48,0.2)}
+.btn-danger:hover:not(:disabled){background:rgba(255,59,48,0.2)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn svg{width:14px;height:14px}
+.content{padding:24px 28px;flex:1;overflow-y:auto;max-height:calc(100vh - 64px)}
+.page{display:none}.page.active{display:block}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;font-family:var(--mono)}
+.stat-value{font-size:26px;font-weight:700;margin-top:6px;letter-spacing:-1px;font-family:var(--mono)}
+.stat-value.green{color:var(--accent)}
+.stat-value.blue{color:var(--accent2)}
+.stat-value.warn{color:var(--warn)}
+.stat-delta{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+.stat-delta.up{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
+.grid3{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:18px}
+.panel-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:13px;font-weight:600}
+.panel-body{padding:16px 18px}
+.webhook-url-box{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.webhook-url{font-family:var(--mono);font-size:11px;color:var(--accent);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{background:var(--bg2);border:1px solid var(--border2);color:var(--muted);padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-family:var(--mono);white-space:nowrap;transition:all 0.15s}
+.copy-btn:hover{color:var(--text);border-color:var(--border)}
+.code-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:11px;color:#a8b4c4;white-space:pre;overflow-x:auto;line-height:1.7}
+.platform-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;font-family:var(--mono);letter-spacing:0.3px;white-space:nowrap}
+.pb-dxtrade{background:rgba(0,102,255,0.15);color:#6aa3ff;border:1px solid rgba(0,102,255,0.25)}
+.pb-mt4,.pb-mt5{background:rgba(255,149,0,0.12);color:#ffb340;border:1px solid rgba(255,149,0,0.2)}
+.pb-tradovate{background:rgba(160,100,255,0.12);color:#bf8fff;border:1px solid rgba(160,100,255,0.2)}
+.log-item{padding:9px 10px;border-radius:5px;display:grid;grid-template-columns:80px 1fr auto auto;gap:10px;align-items:center;font-family:var(--mono);font-size:11px;border-bottom:1px solid var(--border)}
+.log-item:last-child{border-bottom:none}
+.log-item:hover{background:var(--bg3)}
+.log-time{color:var(--muted)}
+.log-status{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap}
+.ls-ok{background:rgba(0,229,160,0.1);color:var(--accent)}
+.ls-err{background:rgba(255,59,48,0.12);color:var(--danger)}
+.ls-pending{background:rgba(255,149,0,0.1);color:var(--warn)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.form-group.full{grid-column:1/-1}
+label{font-size:12px;color:var(--muted);font-weight:500}
+input,select,textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color 0.15s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:rgba(0,229,160,0.4)}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%237a7f8e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer}
+textarea{resize:vertical;min-height:80px}
+.toggle{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.toggle-switch{width:36px;height:20px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;cursor:pointer;position:relative;transition:all 0.2s;flex-shrink:0}
+.toggle-switch.on{background:rgba(0,229,160,0.25);border-color:rgba(0,229,160,0.4)}
+.toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:all 0.2s}
+.toggle-switch.on::after{left:19px;background:var(--accent)}
+.toggle-label{font-size:13px;color:var(--text)}
+.route-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.route-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.route-dot.on{background:var(--accent)}
+.route-dot.off{background:var(--muted)}
+.connector-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+.connector-header{padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.connector-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.connector-name{font-size:14px;font-weight:700}
+.connector-type{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.connected-badge{margin-left:auto;font-size:11px;padding:3px 10px;border-radius:5px;font-weight:700;font-family:var(--mono);white-space:nowrap}
+.cb-yes{background:rgba(0,229,160,0.1);color:var(--accent);border:1px solid rgba(0,229,160,0.2)}
+.cb-no{background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
+.connector-body{padding:16px 18px}
+.sym-table{width:100%;border-collapse:collapse}
+.sym-table th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;padding:0 10px 10px;text-align:left;font-family:var(--mono)}
+.sym-table td{padding:8px 10px;border-top:1px solid var(--border);font-size:12px;font-family:var(--mono)}
+.sym-table tr:hover td{background:var(--bg3)}
+.tag{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600}
+.tag-fx{background:rgba(0,229,160,0.1);color:var(--accent)}
+.tag-futures{background:rgba(0,102,255,0.12);color:#6aa3ff}
+.tag-index{background:rgba(160,100,255,0.12);color:#bf8fff}
+.tag-crypto{background:rgba(255,149,0,0.12);color:#ffb340}
+.alert-box{border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.6}
+.alert-info{background:rgba(0,102,255,0.08);border:1px solid rgba(0,102,255,0.2);color:#6aa3ff}
+.alert-warn{background:rgba(255,149,0,0.08);border:1px solid rgba(255,149,0,0.2);color:#ffb340}
+.alert-success{background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);color:var(--accent)}
+.alert-danger{background:rgba(255,59,48,0.08);border:1px solid rgba(255,59,48,0.2);color:var(--danger)}
+.live-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.2);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:700}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--muted);font-family:var(--mono)}
+.empty-state{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+.empty-state svg{width:32px;height:32px;margin:0 auto 12px;display:block;opacity:0.3}
+.loading{text-align:center;padding:32px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.spinner{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:13px;font-family:var(--mono);z-index:9999;transition:all 0.3s;transform:translateY(0);display:flex;align-items:center;gap:8px;max-width:320px}
+.toast.hidden{transform:translateY(80px);opacity:0;pointer-events:none}
+.toast.success{border-color:rgba(0,229,160,0.3);color:var(--accent)}
+.toast.error{border-color:rgba(255,59,48,0.3);color:var(--danger)}
+.flow-diagram{display:flex;align-items:center;justify-content:center;gap:0;padding:24px 16px;overflow-x:auto;flex-wrap:nowrap}
+.flow-node{background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px 16px;text-align:center;min-width:100px}
+.flow-node.hl{border-color:rgba(0,229,160,0.35);background:rgba(0,229,160,0.06)}
+.flow-node-icon{font-size:20px;margin-bottom:6px}
+.flow-node-label{font-size:11px;font-weight:700}
+.flow-node-sub{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:3px}
+.flow-arrow{padding:0 8px;color:var(--muted);font-size:16px;flex-shrink:0}
+.section-heading{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-family:var(--mono)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.hidden{display:none!important}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
 </style>
 </head>
 <body>
 <div class="shell">
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="logo">
-      <div class="logo-mark">
-        <div class="logo-icon">
-          <svg viewBox="0 0 16 16" fill="none"><path d="M8 2L14 5.5V10.5L8 14L2 10.5V5.5L8 2Z" fill="#000"/><path d="M8 6L11 7.5V10.5L8 12L5 10.5V7.5L8 6Z" fill="rgba(0,0,0,0.4)"/></svg>
-        </div>
-        <div>
-          <div class="logo-text">SignalBridge</div>
-          <div class="logo-sub">TRADE COPIER v2.1</div>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M8 2L14 5.5V10.5L8 14L2 10.5V5.5L8 2Z" fill="#000"/><path d="M8 6L11 7.5V10.5L8 12L5 10.5V7.5L8 6Z" fill="rgba(0,0,0,0.4)"/></svg></div>
+      <div><div class="logo-text">SignalBridge</div><div class="logo-sub">TRADE COPIER v2.1</div></div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-label">Monitor</div>
+      <div class="nav-item active" onclick="nav('dashboard')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+        Dashboard
+        <span class="nav-badge" id="badge-active">0</span>
+      </div>
+      <div class="nav-item" onclick="nav('logs')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
+        Signal Log
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Configure</div>
+      <div class="nav-item" onclick="nav('webhook')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 2v1M8 13v1M2 8h1M13 8h1M4 4l.7.7M11.3 11.3l.7.7M4 12l.7-.7M11.3 4.7l.7-.7"/></svg>
+        Webhook Setup
+      </div>
+      <div class="nav-item" onclick="nav('routes')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h4v4H2zM10 4h4v4h-4zM6 6h4M8 8v4M5 12h6"/></svg>
+        Signal Routes
+      </div>
+      <div class="nav-item" onclick="nav('symbols')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M8 3l5 5-5 5"/></svg>
+        Symbol Map
+      </div>
+      <div class="nav-item" onclick="nav('connectors')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 0112 0"/><circle cx="4" cy="8" r="1.5"/><circle cx="12" cy="8" r="1.5"/><path d="M5.5 8h5"/></svg>
+        Connectors
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">System</div>
+      <div class="nav-item" onclick="nav('settings')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
+        Settings
+      </div>
+    </div>
+  </nav>
+  <div class="status-bar">
+    <div class="status-dot" id="relay-dot"></div>
+    <div class="status-text" id="relay-status">CONNECTING…</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ══════════════════════════════════════════════════
+     DASHBOARD
+══════════════════════════════════════════════════ -->
+<div id="page-dashboard" class="page active">
+  <div class="topbar">
+    <div><div class="page-title">Dashboard</div><div class="page-sub">Live signal monitoring & routing status</div></div>
+    <div class="topbar-actions">
+      <div class="live-pill"><div class="live-dot"></div><span id="live-route-count">— routes active</span></div>
+      <button class="btn btn-ghost" onclick="loadDashboard()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7A5 5 0 112 7"/><path d="M12 2v5h-5"/></svg>Refresh
+      </button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Signals Today</div><div class="stat-value green" id="stat-signals">—</div><div class="stat-delta" id="stat-signals-sub">loading…</div></div>
+      <div class="stat-card"><div class="stat-label">Success Rate</div><div class="stat-value green" id="stat-success">—</div><div class="stat-delta" id="stat-success-sub"></div></div>
+      <div class="stat-card"><div class="stat-label">Active Routes</div><div class="stat-value blue" id="stat-routes">—</div><div class="stat-delta" id="stat-routes-sub"></div></div>
+      <div class="stat-card"><div class="stat-label">Server Status</div><div class="stat-value green" id="stat-health">—</div><div class="stat-delta" id="stat-health-sub"></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Signal Flow</span><span class="chip">Cloud Relay</span></div>
+      <div class="flow-diagram">
+        <div class="flow-node hl"><div class="flow-node-icon">📊</div><div class="flow-node-label">TradingView</div><div class="flow-node-sub">Alert Source</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node hl"><div class="flow-node-icon">🔗</div><div class="flow-node-label">Webhook</div><div class="flow-node-sub">POST /signal</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node hl"><div class="flow-node-icon">⚡</div><div class="flow-node-label">SignalBridge</div><div class="flow-node-sub">Parse + Map</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><div class="flow-node-icon">🔀</div><div class="flow-node-label">Router</div><div class="flow-node-sub">Fan-out</div></div>
+        <div class="flow-arrow">→</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="flow-node" style="min-width:88px;padding:7px 10px"><div class="flow-node-label" style="font-size:10px">DX Trade</div><div class="flow-node-sub">REST API</div></div>
+          <div class="flow-node" style="min-width:88px;padding:7px 10px"><div class="flow-node-label" style="font-size:10px">MT4 / MT5</div><div class="flow-node-sub">EA Bridge</div></div>
+          <div class="flow-node" style="min-width:88px;padding:7px 10px"><div class="flow-node-label" style="font-size:10px">Tradovate</div><div class="flow-node-sub">REST API</div></div>
         </div>
       </div>
     </div>
-
-    <nav class="nav">
-      <div class="nav-section">
-        <div class="nav-label">Monitor</div>
-        <div class="nav-item active" onclick="showTab('dashboard')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
-          Dashboard
-          <span class="nav-badge">3</span>
-        </div>
-        <div class="nav-item" onclick="showTab('logs')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
-          Signal Log
-        </div>
+    <div class="grid3">
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-header"><span class="panel-title">Recent Signals</span><button class="btn btn-ghost btn-sm" onclick="nav('logs')">View all →</button></div>
+        <div id="dash-log"><div class="loading"><div class="spinner"></div>Loading…</div></div>
       </div>
-      <div class="nav-section">
-        <div class="nav-label">Configure</div>
-        <div class="nav-item" onclick="showTab('webhook')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 2v1M8 13v1M2 8h1M13 8h1M4 4l.7.7M11.3 11.3l.7.7M4 12l.7-.7M11.3 4.7l.7-.7"/></svg>
-          Webhook Setup
-        </div>
-        <div class="nav-item" onclick="showTab('routes')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h4v4H2zM10 4h4v4h-4zM6 6h4M8 8v4M5 12h6"/></svg>
-          Signal Routes
-        </div>
-        <div class="nav-item" onclick="showTab('symbols')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M8 3l5 5-5 5"/></svg>
-          Symbol Map
-        </div>
-        <div class="nav-item" onclick="showTab('connectors')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 0112 0"/><circle cx="4" cy="8" r="1.5"/><circle cx="12" cy="8" r="1.5"/><path d="M5.5 8h5"/></svg>
-          Connectors
-        </div>
-      </div>
-      <div class="nav-section">
-        <div class="nav-label">System</div>
-        <div class="nav-item" onclick="showTab('settings')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
-          Settings
-        </div>
-      </div>
-    </nav>
-
-    <div class="status-bar">
-      <div class="status-dot"></div>
-      <div class="status-text">CLOUD RELAY · LIVE</div>
-    </div>
-  </aside>
-
-  <!-- Main content -->
-  <main class="main">
-    <!-- ===== DASHBOARD TAB ===== -->
-    <div id="tab-dashboard" class="tab-content active">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Dashboard</div>
-          <div class="page-sub">Live signal monitoring & routing status</div>
-        </div>
-        <div class="topbar-actions">
-          <div class="live-pill"><div class="live-dot"></div>3 routes active</div>
-          <button class="btn btn-ghost" onclick="refreshLogs()">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7A5 5 0 112 7"/><path d="M12 2v5h-5"/></svg>
-            Refresh
-          </button>
-        </div>
-      </div>
-      <div class="content">
-        <!-- Stats -->
-        <div class="stats-row">
-          <div class="stat-card">
-            <div class="stat-label">Signals Today</div>
-            <div class="stat-value green" id="stat-signals">47</div>
-            <div class="stat-delta up">+12 last hour</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Success Rate</div>
-            <div class="stat-value green" id="stat-success">98.7%</div>
-            <div class="stat-delta up">↑ 0.3% vs yesterday</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Active Routes</div>
-            <div class="stat-value blue" id="stat-routes">3 / 5</div>
-            <div class="stat-delta">2 paused</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Avg Latency</div>
-            <div class="stat-value warn" id="stat-latency">38ms</div>
-            <div class="stat-delta">webhook → broker</div>
-          </div>
-        </div>
-
-        <!-- Flow diagram -->
-        <div class="panel" style="margin-bottom: 24px;">
-          <div class="panel-header">
-            <span class="panel-title">Signal Flow Architecture</span>
-            <span class="chip">Cloud Relay Mode</span>
-          </div>
-          <div class="flow-diagram">
-            <div class="flow-node highlight">
-              <div class="flow-node-icon">📊</div>
-              <div class="flow-node-label">TradingView</div>
-              <div class="flow-node-sub">Alert Source</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-node highlight">
-              <div class="flow-node-icon">🔗</div>
-              <div class="flow-node-label">Webhook</div>
-              <div class="flow-node-sub">POST /signal</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-node highlight">
-              <div class="flow-node-icon">⚡</div>
-              <div class="flow-node-label">SignalBridge</div>
-              <div class="flow-node-sub">Parse + Map</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-node">
-              <div class="flow-node-icon">🔀</div>
-              <div class="flow-node-label">Router</div>
-              <div class="flow-node-sub">Route Logic</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div class="flow-node" style="min-width:90px; padding: 8px 12px;">
-                <div class="flow-node-label" style="font-size:10px;">DX Trade</div>
-                <div class="flow-node-sub">FIX Feed</div>
-              </div>
-              <div class="flow-node" style="min-width:90px; padding: 8px 12px;">
-                <div class="flow-node-label" style="font-size:10px;">MT4 / MT5</div>
-                <div class="flow-node-sub">EA Bridge</div>
-              </div>
-              <div class="flow-node" style="min-width:90px; padding: 8px 12px;">
-                <div class="flow-node-label" style="font-size:10px;">Tradovate</div>
-                <div class="flow-node-sub">REST API</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid3">
-          <!-- Recent signals -->
-          <div class="panel">
-            <div class="panel-header">
-              <span class="panel-title">Recent Signals</span>
-              <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;" onclick="showTab('logs')">View all →</button>
-            </div>
-            <div class="panel-body">
-              <div class="log-feed" id="live-log"></div>
-            </div>
-          </div>
-
-          <!-- Active routes -->
-          <div class="panel">
-            <div class="panel-header"><span class="panel-title">Route Status</span></div>
-            <div class="panel-body">
-              <div class="route-list" id="route-status-list"></div>
-            </div>
-          </div>
-        </div>
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-header"><span class="panel-title">Route Status</span></div>
+        <div class="panel-body" id="dash-routes"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
-
-    <!-- ===== WEBHOOK TAB ===== -->
-    <div id="tab-webhook" class="tab-content hidden">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Webhook Setup</div>
-          <div class="page-sub">Configure your TradingView alert endpoint</div>
-        </div>
-        <div class="topbar-actions">
-          <button class="btn btn-primary" onclick="regenerateWebhook()">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7A5 5 0 112 7"/><path d="M12 2v5h-5"/></svg>
-            Regenerate URL
-          </button>
-        </div>
-      </div>
-      <div class="content">
-        <div class="alert-info alert-box">
-          📌 Paste this webhook URL into your TradingView alert's "Webhook URL" field. Signals are authenticated via your unique token embedded in the URL.
-        </div>
-
-        <div class="panel" style="margin-bottom: 20px;">
-          <div class="panel-header"><span class="panel-title">Your Webhook Endpoint</span></div>
-          <div class="panel-body">
-            <div class="section-heading">Webhook URL</div>
-            <div class="webhook-url-box">
-              <div class="webhook-url" id="webhook-url-display">https://relay.signalbridge.io/hook/abc123xyz/signal</div>
-              <button class="copy-btn" onclick="copyWebhook()">Copy</button>
-            </div>
-            <div class="section-heading" style="margin-top:16px;">TradingView Alert Message Template</div>
-            <div class="code-block" id="payload-template"><span class="code-comment">// Paste this into TradingView Alert → Message field</span>
-{
-  <span class="code-key">"action"</span>: <span class="code-str">"{{strategy.order.action}}"</span>,    <span class="code-comment">// "buy" or "sell"</span>
-  <span class="code-key">"symbol"</span>: <span class="code-str">"{{ticker}}"</span>,                <span class="code-comment">// e.g. "EURUSD"</span>
-  <span class="code-key">"qty"</span>:    <span class="code-str">"{{strategy.order.contracts}}"</span>, <span class="code-comment">// lot size</span>
-  <span class="code-key">"price"</span>:  <span class="code-str">"{{close}}"</span>,                <span class="code-comment">// optional</span>
-  <span class="code-key">"sl"</span>:     <span class="code-str">"{{plot_0}}"</span>,               <span class="code-comment">// stop loss (optional)</span>
-  <span class="code-key">"tp"</span>:     <span class="code-str">"{{plot_1}}"</span>,               <span class="code-comment">// take profit (optional)</span>
-  <span class="code-key">"comment"</span>:<span class="code-str">"{{strategy.order.comment}}"</span> <span class="code-comment">// optional tag</span>
-}</div>
-            <div class="alert-warn alert-box" style="margin-top: 16px;">
-              ⚠️ Keep your webhook URL private. Anyone with this URL can send signals to your connected accounts.
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Webhook Settings</span></div>
-          <div class="panel-body">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Token Expiry</label>
-                <select>
-                  <option>Never</option>
-                  <option>30 days</option>
-                  <option>90 days</option>
-                  <option>1 year</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Max Signals/Minute</label>
-                <input type="number" value="10" min="1" max="100">
-              </div>
-              <div class="form-group">
-                <label>IP Allowlist (optional)</label>
-                <input type="text" placeholder="52.89.214.238, 34.212.75.30">
-              </div>
-              <div class="form-group">
-                <label>Shared Secret (HMAC)</label>
-                <input type="password" value="sk_live_xyz123" placeholder="Optional HMAC secret">
-              </div>
-            </div>
-            <div class="toggle" style="margin-bottom: 12px;">
-              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
-              <span class="toggle-label">Require HTTPS only</span>
-            </div>
-            <div class="toggle">
-              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
-              <span class="toggle-label">Log all incoming payloads</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== ROUTES TAB ===== -->
-    <div id="tab-routes" class="tab-content hidden">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Signal Routes</div>
-          <div class="page-sub">Map webhook signals to destination brokers</div>
-        </div>
-        <div class="topbar-actions">
-          <button class="btn btn-primary" onclick="openAddRoute()">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v10M2 7h10"/></svg>
-            Add Route
-          </button>
-        </div>
-      </div>
-      <div class="content">
-        <div id="routes-list"></div>
-        <!-- Add Route Form -->
-        <div id="add-route-form" class="panel hidden" style="margin-top:20px;">
-          <div class="panel-header"><span class="panel-title">New Signal Route</span></div>
-          <div class="panel-body">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Route Name</label>
-                <input type="text" placeholder="e.g. ES Futures → Tradovate">
-              </div>
-              <div class="form-group">
-                <label>Destination Platform</label>
-                <select id="new-route-platform" onchange="updateRouteForm()">
-                  <option value="">Select platform…</option>
-                  <option value="dxtrade">DX Trade</option>
-                  <option value="mt4">MT4</option>
-                  <option value="mt5">MT5</option>
-                  <option value="tradovate">Tradovate</option>
-                </select>
-              </div>
-              <div class="form-group full" id="route-extra-fields"></div>
-              <div class="form-group">
-                <label>Symbol Filter (comma-separated, blank = all)</label>
-                <input type="text" placeholder="EURUSD, GBPUSD, NQ1!">
-              </div>
-              <div class="form-group">
-                <label>Lot Multiplier</label>
-                <input type="number" value="1.0" step="0.01" min="0.01">
-              </div>
-              <div class="form-group">
-                <label>Order Type</label>
-                <select>
-                  <option>Market</option>
-                  <option>Limit</option>
-                  <option>Stop</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Max Drawdown Halt (%)</label>
-                <input type="number" value="5" min="0" max="100">
-              </div>
-            </div>
-            <div class="toggle" style="margin-bottom: 16px;">
-              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
-              <span class="toggle-label">Activate route immediately</span>
-            </div>
-            <div style="display: flex; gap: 10px;">
-              <button class="btn btn-primary" onclick="saveRoute()">Save Route</button>
-              <button class="btn btn-ghost" onclick="document.getElementById('add-route-form').classList.add('hidden')">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== SYMBOL MAP TAB ===== -->
-    <div id="tab-symbols" class="tab-content hidden">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Symbol Map</div>
-          <div class="page-sub">Translate TradingView tickers to broker symbols</div>
-        </div>
-        <div class="topbar-actions">
-          <button class="btn btn-ghost" onclick="exportMap()">Export CSV</button>
-          <button class="btn btn-primary" onclick="importMap()">Import</button>
-        </div>
-      </div>
-      <div class="content">
-        <div class="alert-info alert-box">
-          💡 TradingView tickers often differ from broker symbols. Map them here so orders reach the right instrument. Example: TradingView sends <code>NQ1!</code> → Tradovate needs <code>NQU4</code>.
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Symbol Mappings</span>
-            <div style="display:flex;gap:8px;">
-              <input type="text" id="sym-search" placeholder="Search symbols…" style="width:180px;padding:5px 10px;font-size:12px;" oninput="filterSymbols()">
-              <select id="sym-filter-platform" onchange="filterSymbols()" style="padding:5px 10px;font-size:12px;">
-                <option value="">All platforms</option>
-                <option value="dxtrade">DX Trade</option>
-                <option value="mt4">MT4</option>
-                <option value="mt5">MT5</option>
-                <option value="tradovate">Tradovate</option>
-              </select>
-            </div>
-          </div>
-          <div class="panel-body">
-            <table class="sym-table">
-              <thead>
-                <tr>
-                  <th>TV Symbol</th>
-                  <th></th>
-                  <th>Broker Symbol</th>
-                  <th>Platform</th>
-                  <th>Category</th>
-                  <th>Point Value</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="symbol-map-body"></tbody>
-            </table>
-            <div class="sym-add-row" style="margin-top:16px;">
-              <input type="text" id="new-tv-sym" placeholder="TV symbol (e.g. EURUSD)">
-              <span style="color:var(--muted);font-family:var(--mono);">→</span>
-              <input type="text" id="new-broker-sym" placeholder="Broker symbol">
-              <select id="new-sym-platform">
-                <option value="dxtrade">DX Trade</option>
-                <option value="mt4">MT4</option>
-                <option value="mt5">MT5</option>
-                <option value="tradovate">Tradovate</option>
-              </select>
-              <select id="new-sym-category">
-                <option value="fx">FX</option>
-                <option value="futures">Futures</option>
-                <option value="index">Index</option>
-                <option value="crypto">Crypto</option>
-              </select>
-              <input type="number" id="new-sym-pv" placeholder="Point val" style="width:100px;">
-              <button class="btn btn-primary" onclick="addSymbol()">Add</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== CONNECTORS TAB ===== -->
-    <div id="tab-connectors" class="tab-content hidden">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Connectors</div>
-          <div class="page-sub">Configure broker API connections</div>
-        </div>
-      </div>
-      <div class="content">
-        <!-- DX Trade -->
-        <div class="connector-card">
-          <div class="connector-header">
-            <div class="connector-icon" style="background:rgba(0,102,255,0.12);color:#6aa3ff;font-size:13px;font-weight:700;font-family:var(--mono);">DX</div>
-            <div>
-              <div class="connector-name">DX Trade</div>
-              <div class="connector-type">FIX Protocol / REST Feed</div>
-            </div>
-            <span class="connected-badge cb-yes">CONNECTED</span>
-          </div>
-          <div class="connector-body">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Account Server URL</label>
-                <input type="text" value="https://broker.dxtrade.com/trade" placeholder="Server URL">
-              </div>
-              <div class="form-group">
-                <label>Account ID / Username</label>
-                <input type="text" value="acct_12345" placeholder="Account ID">
-              </div>
-              <div class="form-group">
-                <label>API Key</label>
-                <input type="password" value="dxt_live_abc123" placeholder="API Key">
-              </div>
-              <div class="form-group">
-                <label>Feed Domain (optional)</label>
-                <input type="text" placeholder="feed.broker.com">
-              </div>
-            </div>
-            <div class="toggle" style="margin-bottom:12px;">
-              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
-              <span class="toggle-label">Enable Demo mode (paper trading)</span>
-            </div>
-            <div style="display:flex;gap:10px;">
-              <button class="btn btn-primary" onclick="testConn('DX Trade')">Test Connection</button>
-              <button class="btn btn-ghost">Save</button>
-              <button class="btn btn-danger">Disconnect</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- MT4/MT5 -->
-        <div class="connector-card">
-          <div class="connector-header">
-            <div class="connector-icon" style="background:rgba(255,149,0,0.12);color:#ffb340;font-size:13px;font-weight:700;font-family:var(--mono);">MT</div>
-            <div>
-              <div class="connector-name">MetaTrader 4 / 5</div>
-              <div class="connector-type">Expert Advisor Bridge (ZeroMQ / REST)</div>
-            </div>
-            <span class="connected-badge cb-yes">MT5 CONNECTED</span>
-          </div>
-          <div class="connector-body">
-            <div class="alert-info alert-box">
-              📦 Install the <strong>SignalBridge EA</strong> on your MT4/MT5 terminal. The EA opens a local socket that this service connects to via your bridge relay.
-            </div>
-            <div class="form-grid">
-              <div class="form-group">
-                <label>MT Version</label>
-                <select>
-                  <option>MetaTrader 5</option>
-                  <option>MetaTrader 4</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Bridge Relay Host</label>
-                <input type="text" value="mt5-relay.signalbridge.io" placeholder="Relay host">
-              </div>
-              <div class="form-group">
-                <label>Account Number</label>
-                <input type="text" value="12345678" placeholder="MT account number">
-              </div>
-              <div class="form-group">
-                <label>EA Magic Number</label>
-                <input type="number" value="88001" placeholder="Magic number">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Download MT5 Expert Advisor</label>
-              <button class="btn btn-ghost" style="width:fit-content;" onclick="downloadEA()">
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M7 2v7M4 6l3 3 3-3M2 11h10"/></svg>
-                SignalBridge_EA_v2.ex5
-              </button>
-            </div>
-            <div style="display:flex;gap:10px;margin-top:8px;">
-              <button class="btn btn-primary" onclick="testConn('MT5')">Test Connection</button>
-              <button class="btn btn-ghost">Save</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tradovate -->
-        <div class="connector-card">
-          <div class="connector-header">
-            <div class="connector-icon" style="background:rgba(160,100,255,0.12);color:#bf8fff;font-size:13px;font-weight:700;font-family:var(--mono);">TV</div>
-            <div>
-              <div class="connector-name">Tradovate</div>
-              <div class="connector-type">REST API / WebSocket</div>
-            </div>
-            <span class="connected-badge cb-no">NOT CONNECTED</span>
-          </div>
-          <div class="connector-body">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Environment</label>
-                <select>
-                  <option>Live (demo.tradovateapi.com)</option>
-                  <option>Demo (live.tradovateapi.com)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Username</label>
-                <input type="text" placeholder="Tradovate username">
-              </div>
-              <div class="form-group">
-                <label>Password</label>
-                <input type="password" placeholder="Tradovate password">
-              </div>
-              <div class="form-group">
-                <label>App ID / CID</label>
-                <input type="text" placeholder="Application ID">
-              </div>
-              <div class="form-group">
-                <label>App Secret</label>
-                <input type="password" placeholder="Application Secret">
-              </div>
-              <div class="form-group">
-                <label>Account Spec</label>
-                <input type="text" placeholder="e.g. demo123456">
-              </div>
-            </div>
-            <div style="display:flex;gap:10px;">
-              <button class="btn btn-primary" onclick="testConn('Tradovate')">Connect</button>
-              <button class="btn btn-ghost">Save Credentials</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== LOGS TAB ===== -->
-    <div id="tab-logs" class="tab-content hidden">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Signal Log</div>
-          <div class="page-sub">Complete audit trail of all signals processed</div>
-        </div>
-        <div class="topbar-actions">
-          <select style="padding:7px 12px;font-size:12px;">
-            <option>All platforms</option>
-            <option>DX Trade</option>
-            <option>MT5</option>
-            <option>Tradovate</option>
-          </select>
-          <button class="btn btn-ghost">Export CSV</button>
-        </div>
-      </div>
-      <div class="content">
-        <div class="panel">
-          <div class="panel-body">
-            <div id="full-log" style="max-height: none;"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== SETTINGS TAB ===== -->
-    <div id="tab-settings" class="tab-content hidden">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Settings</div>
-          <div class="page-sub">Global configuration and preferences</div>
-        </div>
-      </div>
-      <div class="content">
-        <div class="panel" style="margin-bottom:20px;">
-          <div class="panel-header"><span class="panel-title">Risk Controls</span></div>
-          <div class="panel-body">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Global Max Position Size (lots)</label>
-                <input type="number" value="10" min="0.01" step="0.01">
-              </div>
-              <div class="form-group">
-                <label>Daily Loss Limit ($)</label>
-                <input type="number" value="500">
-              </div>
-              <div class="form-group">
-                <label>Max Simultaneous Trades</label>
-                <input type="number" value="5">
-              </div>
-              <div class="form-group">
-                <label>Duplicate Signal Timeout (sec)</label>
-                <input type="number" value="30">
-              </div>
-            </div>
-            <div class="toggle" style="margin-bottom:12px;">
-              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
-              <span class="toggle-label">Halt trading on daily loss limit breach</span>
-            </div>
-            <div class="toggle" style="margin-bottom:12px;">
-              <div class="toggle-switch" onclick="this.classList.toggle('on')"></div>
-              <span class="toggle-label">Reverse signals (mirror trading)</span>
-            </div>
-            <div class="toggle">
-              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
-              <span class="toggle-label">Send email alert on errors</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Cloud Relay</span></div>
-          <div class="panel-body">
-            <div class="alert-success alert-box">
-              ✅ Cloud relay active — your signals are processed at <strong>relay.signalbridge.io</strong>. All traffic is encrypted via TLS 1.3.
-            </div>
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Relay Region</label>
-                <select>
-                  <option>US-East (Virginia)</option>
-                  <option>US-West (Oregon)</option>
-                  <option>EU-West (Ireland)</option>
-                  <option>AP-Southeast (Singapore)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Retry Attempts on Failure</label>
-                <input type="number" value="3" min="0" max="10">
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
+  </div>
 </div>
 
-<script>
-// --- State ---
-const WEBHOOK_BASE = 'https://relay.signalbridge.io/hook';
-let webhookToken = 'abc123xyz9f2e1';
-let symbolMap = [
-  { tv: 'EURUSD',  broker: 'EURUSD',    platform: 'mt5',       cat: 'fx',      pv: 1 },
-  { tv: 'GBPUSD',  broker: 'GBPUSD',    platform: 'mt5',       cat: 'fx',      pv: 1 },
-  { tv: 'NQ1!',    broker: 'NQU4',       platform: 'tradovate', cat: 'futures', pv: 20 },
-  { tv: 'ES1!',    broker: 'ESU4',       platform: 'tradovate', cat: 'futures', pv: 50 },
-  { tv: 'XAUUSD',  broker: 'GOLD',       platform: 'dxtrade',   cat: 'index',   pv: 100 },
-  { tv: 'BTCUSD',  broker: 'BTC/USD',    platform: 'dxtrade',   cat: 'crypto',  pv: 1 },
-  { tv: 'SPX500',  broker: 'US500',      platform: 'mt5',       cat: 'index',   pv: 1 },
-  { tv: 'MNQ1!',   broker: 'MNQU4',      platform: 'tradovate', cat: 'futures', pv: 2 },
-];
-
-let routes = [
-  { id: 1, name: 'FX → MT5 Live',       platform: 'mt5',       active: true,  symbols: 'EURUSD,GBPUSD', multiplier: 1 },
-  { id: 2, name: 'Futures → Tradovate', platform: 'tradovate', active: true,  symbols: 'NQ1!,ES1!,MNQ1!', multiplier: 1 },
-  { id: 3, name: 'Gold → DXTrade',      platform: 'dxtrade',   active: true,  symbols: 'XAUUSD', multiplier: 0.5 },
-  { id: 4, name: 'Crypto → DXTrade',    platform: 'dxtrade',   active: false, symbols: 'BTCUSD', multiplier: 1 },
-  { id: 5, name: 'Index Mirror MT5',    platform: 'mt5',       active: false, symbols: 'SPX500', multiplier: 2 },
-];
-
-const sampleSignals = [
-  { time: '14:32:11', sym: 'NQ1!',   action: 'BUY',  qty: '1',  platform: 'tradovate', status: 'ok' },
-  { time: '14:31:04', sym: 'EURUSD', action: 'SELL', qty: '0.5',platform: 'mt5',       status: 'ok' },
-  { time: '14:29:58', sym: 'XAUUSD', action: 'BUY',  qty: '1',  platform: 'dxtrade',   status: 'ok' },
-  { time: '14:28:33', sym: 'ES1!',   action: 'BUY',  qty: '2',  platform: 'tradovate', status: 'ok' },
-  { time: '14:27:01', sym: 'GBPUSD', action: 'BUY',  qty: '1',  platform: 'mt5',       status: 'err' },
-  { time: '14:26:12', sym: 'NQ1!',   action: 'SELL', qty: '1',  platform: 'tradovate', status: 'ok' },
-  { time: '14:24:55', sym: 'BTCUSD', action: 'BUY',  qty: '0.01',platform:'dxtrade',  status: 'pending' },
-  { time: '14:23:08', sym: 'EURUSD', action: 'BUY',  qty: '1',  platform: 'mt5',       status: 'ok' },
-];
-
-// --- Helpers ---
-const pb = (platform) => {
-  const map = { dxtrade: 'pb-dxtrade', mt4: 'pb-mt4', mt5: 'pb-mt5', tradovate: 'pb-tradovate', tv: 'pb-tv' };
-  const labels = { dxtrade: 'DX TRADE', mt4: 'MT4', mt5: 'MT5', tradovate: 'TRADOVATE', tv: 'TRADINGVIEW' };
-  return `<span class="platform-badge ${map[platform]||''}">${labels[platform]||platform.toUpperCase()}</span>`;
-};
-
-const catTag = (cat) => {
-  const map = { fx:'tag-fx', futures:'tag-fut', index:'tag-idx', crypto:'tag-crypto' };
-  return `<span class="tag ${map[cat]||''}">${cat.toUpperCase()}</span>`;
-};
-
-const statusBadge = (s) => {
-  const map = { ok: ['ls-ok','OK'], err: ['ls-err','ERROR'], pending: ['ls-pending','PENDING'] };
-  const [cls,label] = map[s]||['','?'];
-  return `<span class="log-status ${cls}">${label}</span>`;
-};
-
-function logItemHTML(sig) {
-  const actionColor = sig.action === 'BUY' ? 'color:var(--accent)' : 'color:var(--danger)';
-  return `<div class="log-item">
-    <span class="log-time">${sig.time}</span>
-    <span class="log-msg"><span style="${actionColor};font-weight:600;">${sig.action}</span> <span class="log-sym">${sig.sym}</span> × ${sig.qty} ${pb(sig.platform)}</span>
-    <span></span>
-    ${statusBadge(sig.status)}
-  </div>`;
-}
-
-// --- Render ---
-function renderLiveLog() {
-  const el = document.getElementById('live-log');
-  if (!el) return;
-  el.innerHTML = sampleSignals.slice(0,6).map(logItemHTML).join('');
-}
-
-function renderFullLog() {
-  const el = document.getElementById('full-log');
-  if (!el) return;
-  el.className = 'log-feed';
-  el.style.maxHeight = 'none';
-  el.innerHTML = sampleSignals.map(logItemHTML).join('');
-}
-
-function renderRouteStatus() {
-  const el = document.getElementById('route-status-list');
-  if (!el) return;
-  el.innerHTML = routes.map(r => `
-    <div class="route-item">
-      <div class="route-active-dot ${r.active?'on':'off'}"></div>
-      <div>
-        <div class="route-name">${r.name}</div>
-        <div class="route-meta">${r.symbols}</div>
-      </div>
-      ${pb(r.platform)}
+<!-- ══════════════════════════════════════════════════
+     SIGNAL LOG
+══════════════════════════════════════════════════ -->
+<div id="page-logs" class="page">
+  <div class="topbar">
+    <div><div class="page-title">Signal Log</div><div class="page-sub">Complete audit trail of all processed signals</div></div>
+    <div class="topbar-actions">
+      <select id="log-filter-platform" onchange="loadLogs()" style="width:140px;padding:7px 12px;font-size:12px">
+        <option value="">All platforms</option>
+        <option value="dxtrade">DX Trade</option>
+        <option value="mt4">MT4</option>
+        <option value="mt5">MT5</option>
+        <option value="tradovate">Tradovate</option>
+      </select>
+      <select id="log-filter-status" onchange="loadLogs()" style="width:120px;padding:7px 12px;font-size:12px">
+        <option value="">All status</option>
+        <option value="ok">Success</option>
+        <option value="error">Error</option>
+      </select>
+      <button class="btn btn-ghost" onclick="loadLogs()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7A5 5 0 112 7"/><path d="M12 2v5h-5"/></svg>Refresh
+      </button>
     </div>
-  `).join('');
-}
+  </div>
+  <div class="content">
+    <div class="panel">
+      <div class="panel-body" style="padding:0" id="full-log"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+    </div>
+  </div>
+</div>
 
-function renderRoutesList() {
-  const el = document.getElementById('routes-list');
-  if (!el) return;
-  el.innerHTML = routes.map(r => `
-    <div class="panel" style="margin-bottom:14px;">
+<!-- ══════════════════════════════════════════════════
+     WEBHOOK SETUP
+══════════════════════════════════════════════════ -->
+<div id="page-webhook" class="page">
+  <div class="topbar">
+    <div><div class="page-title">Webhook Setup</div><div class="page-sub">Your TradingView alert endpoint</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-danger" onclick="regenerateWebhook()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7A5 5 0 112 7"/><path d="M12 2v5h-5"/></svg>Regenerate URL
+      </button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="alert-info alert-box">📌 Paste this URL into your TradingView alert → Notifications → Webhook URL. Your token is embedded — keep it private.</div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Your Webhook Endpoint</span></div>
+      <div class="panel-body">
+        <div class="section-heading">Webhook URL</div>
+        <div class="webhook-url-box">
+          <div class="webhook-url" id="webhook-url-display">Loading…</div>
+          <button class="copy-btn" onclick="copyWebhook()">Copy</button>
+        </div>
+        <div class="section-heading" style="margin-top:16px">Test Webhook (dry-run, no real orders)</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px">
+          <div class="form-group" style="margin-bottom:0;flex:1"><label>Symbol</label><input id="test-symbol" value="EURUSD" style="max-width:140px"></div>
+          <div class="form-group" style="margin-bottom:0;flex:1"><label>Action</label><select id="test-action" style="max-width:120px"><option>buy</option><option>sell</option></select></div>
+          <div class="form-group" style="margin-bottom:0;flex:1"><label>Qty</label><input id="test-qty" type="number" value="1" step="0.01" style="max-width:100px"></div>
+          <button class="btn btn-primary" onclick="sendTestSignal()">Send Test</button>
+        </div>
+        <div id="test-result" class="hidden"></div>
+        <div class="section-heading" style="margin-top:8px">TradingView Alert Message Template</div>
+        <div class="code-block">{
+  <span style="color:#7dd3fc">"action"</span>:  <span style="color:#a3e635">"{{strategy.order.action}}"</span>,
+  <span style="color:#7dd3fc">"symbol"</span>:  <span style="color:#a3e635">"{{ticker}}"</span>,
+  <span style="color:#7dd3fc">"qty"</span>:     <span style="color:#a3e635">"{{strategy.order.contracts}}"</span>,
+  <span style="color:#7dd3fc">"price"</span>:   <span style="color:#a3e635">"{{close}}"</span>,
+  <span style="color:#7dd3fc">"sl"</span>:      <span style="color:#a3e635">"{{plot_0}}"</span>,
+  <span style="color:#7dd3fc">"tp"</span>:      <span style="color:#a3e635">"{{plot_1}}"</span>,
+  <span style="color:#7dd3fc">"comment"</span>: <span style="color:#a3e635">"{{strategy.order.comment}}"</span>
+}</div>
+        <div class="alert-warn alert-box" style="margin-top:16px">⚠️ Anyone with this URL can send signals to your accounts. Regenerate it if compromised.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Webhook Security</span></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-group"><label>IP Allowlist (optional, comma-separated)</label><input id="wh-ip" placeholder="52.89.214.238, 34.212.75.30" oninput="markSettingsDirty()"></div>
+          <div class="form-group"><label>Max Signals per Minute</label><input id="wh-rate" type="number" value="60" oninput="markSettingsDirty()"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Security Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIGNAL ROUTES
+══════════════════════════════════════════════════ -->
+<div id="page-routes" class="page">
+  <div class="topbar">
+    <div><div class="page-title">Signal Routes</div><div class="page-sub">Map webhook signals to broker accounts</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" onclick="toggleAddRoute()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v10M2 7h10"/></svg>Add Route
+      </button>
+    </div>
+  </div>
+  <div class="content">
+    <!-- Add route form -->
+    <div id="add-route-panel" class="panel hidden">
+      <div class="panel-header"><span class="panel-title">New Signal Route</span></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Route Name</label><input id="nr-name" placeholder="e.g. FX Pairs → DX Trade"></div>
+          <div class="form-group"><label>Destination Platform</label>
+            <select id="nr-platform">
+              <option value="">Select platform…</option>
+              <option value="dxtrade">DX Trade / Liquid Charts</option>
+              <option value="mt4">MetaTrader 4</option>
+              <option value="mt5">MetaTrader 5</option>
+              <option value="tradovate">Tradovate</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Symbol Filter (blank = all symbols)</label><input id="nr-symbols" placeholder="EURUSD, GBPUSD, XAUUSD"></div>
+          <div class="form-group"><label>Lot Multiplier</label><input id="nr-multiplier" type="number" value="1.0" step="0.01" min="0.01"></div>
+          <div class="form-group"><label>Order Type</label><select id="nr-ordertype"><option value="MARKET">Market</option><option value="LIMIT">Limit</option></select></div>
+          <div class="form-group"><label>Max Drawdown Halt (%)</label><input id="nr-drawdown" type="number" value="0" min="0"></div>
+        </div>
+        <div class="toggle"><div class="toggle-switch on" id="nr-active-toggle" onclick="this.classList.toggle('on')"></div><span class="toggle-label">Activate immediately</span></div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn btn-primary" onclick="saveRoute()">Save Route</button>
+          <button class="btn btn-ghost" onclick="toggleAddRoute()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="routes-list"><div class="loading"><div class="spinner"></div>Loading routes…</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SYMBOL MAP
+══════════════════════════════════════════════════ -->
+<div id="page-symbols" class="page">
+  <div class="topbar">
+    <div><div class="page-title">Symbol Map</div><div class="page-sub">Translate TradingView tickers to broker symbols</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" onclick="exportSymbols()">Export CSV</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="alert-info alert-box">💡 TradingView tickers often differ from broker symbols. Example: TradingView sends <code style="font-family:var(--mono)">NQ1!</code> → Tradovate needs <code style="font-family:var(--mono)">NQU4</code>.</div>
+    <div class="panel">
       <div class="panel-header">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div class="route-active-dot ${r.active?'on':'off'}"></div>
-          <span class="panel-title">${r.name}</span>
-          ${pb(r.platform)}
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;" onclick="toggleRoute(${r.id})">${r.active?'Pause':'Resume'}</button>
-          <button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="deleteRoute(${r.id})">Delete</button>
+        <span class="panel-title">Symbol Mappings</span>
+        <div style="display:flex;gap:8px">
+          <input id="sym-search" placeholder="Search…" style="width:160px;padding:5px 10px;font-size:12px" oninput="filterSymbols()">
+          <select id="sym-platform-filter" onchange="filterSymbols()" style="padding:5px 10px;font-size:12px;width:140px">
+            <option value="">All platforms</option>
+            <option value="dxtrade">DX Trade</option>
+            <option value="mt4">MT4</option>
+            <option value="mt5">MT5</option>
+            <option value="tradovate">Tradovate</option>
+          </select>
         </div>
       </div>
-      <div class="panel-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-        <div><div class="stat-label">Symbols</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px;color:var(--text);">${r.symbols}</div></div>
-        <div><div class="stat-label">Lot Multiplier</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px;color:var(--text);">${r.multiplier}×</div></div>
-        <div><div class="stat-label">Status</div><div style="font-size:12px;margin-top:4px;">${r.active ? '<span style="color:var(--accent);">● Active</span>' : '<span style="color:var(--muted);">○ Paused</span>'}</div></div>
+      <div class="panel-body" style="padding:0">
+        <table class="sym-table">
+          <thead><tr><th>TV Symbol</th><th></th><th>Broker Symbol</th><th>Platform</th><th>Category</th><th>Point Value</th><th></th></tr></thead>
+          <tbody id="sym-tbody"><tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel-body" style="border-top:1px solid var(--border)">
+        <div class="section-heading">Add Mapping</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="margin-bottom:0;min-width:120px"><label>TV Symbol</label><input id="new-tv" placeholder="e.g. NQ1!"></div>
+          <div style="color:var(--muted);font-family:var(--mono);padding-bottom:10px">→</div>
+          <div class="form-group" style="margin-bottom:0;min-width:120px"><label>Broker Symbol</label><input id="new-broker" placeholder="e.g. NQU4"></div>
+          <div class="form-group" style="margin-bottom:0"><label>Platform</label>
+            <select id="new-sym-platform" style="min-width:130px">
+              <option value="dxtrade">DX Trade</option><option value="mt4">MT4</option><option value="mt5">MT5</option><option value="tradovate">Tradovate</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0"><label>Category</label>
+            <select id="new-sym-cat" style="min-width:100px">
+              <option value="fx">FX</option><option value="futures">Futures</option><option value="index">Index</option><option value="crypto">Crypto</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;max-width:100px"><label>Point Value</label><input id="new-sym-pv" type="number" value="1" step="any"></div>
+          <button class="btn btn-primary" onclick="addSymbol()" style="white-space:nowrap">Add</button>
+        </div>
       </div>
     </div>
-  `).join('');
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     CONNECTORS
+══════════════════════════════════════════════════ -->
+<div id="page-connectors" class="page">
+  <div class="topbar">
+    <div><div class="page-title">Connectors</div><div class="page-sub">Broker API credentials & connection status</div></div>
+  </div>
+  <div class="content">
+
+    <!-- DX TRADE -->
+    <div class="connector-card">
+      <div class="connector-header">
+        <div class="connector-icon" style="background:rgba(0,102,255,0.12);color:#6aa3ff">DX</div>
+        <div><div class="connector-name">DX Trade — Liquid Charts</div><div class="connector-type">Session Auth · pro.liquidcharts.com</div></div>
+        <span class="connected-badge" id="badge-dxtrade">—</span>
+      </div>
+      <div class="connector-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Host (no https://)</label><input id="dx-host" placeholder="pro.liquidcharts.com"></div>
+          <div class="form-group"><label>Account ID (optional)</label><input id="dx-accountid" placeholder="Your account number"></div>
+          <div class="form-group"><label>Username / Email</label><input id="dx-username" placeholder="Your Liquid Charts login"></div>
+          <div class="form-group"><label>Password</label><input id="dx-password" type="password" placeholder="Your Liquid Charts password"></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="testConn('dxtrade')">Test Connection</button>
+          <button class="btn btn-ghost" onclick="saveConn('dxtrade')">Save</button>
+        </div>
+        <div id="conn-result-dxtrade" class="hidden" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- MT5 -->
+    <div class="connector-card">
+      <div class="connector-header">
+        <div class="connector-icon" style="background:rgba(255,149,0,0.12);color:#ffb340">MT5</div>
+        <div><div class="connector-name">MetaTrader 5</div><div class="connector-type">EA Bridge Relay</div></div>
+        <span class="connected-badge" id="badge-mt5">—</span>
+      </div>
+      <div class="connector-body">
+        <div class="alert-info alert-box">📦 Install <strong>SignalBridge_EA_v2.ex5</strong> on your MT5 terminal. Enable WebRequests for your relay host in Tools → Options → Expert Advisors.</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Bridge Relay Host</label><input id="mt5-host" placeholder="mt5-relay.signalbridge.io"></div>
+          <div class="form-group"><label>API Key</label><input id="mt5-apikey" type="password" placeholder="Bridge API key"></div>
+          <div class="form-group"><label>Account Number</label><input id="mt5-account" placeholder="MT5 account number"></div>
+          <div class="form-group"><label>EA Magic Number</label><input id="mt5-magic" type="number" value="88001"></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="testConn('mt5')">Test Connection</button>
+          <button class="btn btn-ghost" onclick="saveConn('mt5')">Save</button>
+          <a class="btn btn-ghost" href="/ea/SignalBridge_EA_v2.mq5" download>
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v7M4 6l3 3 3-3M2 11h10"/></svg>Download EA
+          </a>
+        </div>
+        <div id="conn-result-mt5" class="hidden" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- MT4 -->
+    <div class="connector-card">
+      <div class="connector-header">
+        <div class="connector-icon" style="background:rgba(255,149,0,0.12);color:#ffb340">MT4</div>
+        <div><div class="connector-name">MetaTrader 4</div><div class="connector-type">EA Bridge Relay</div></div>
+        <span class="connected-badge" id="badge-mt4">—</span>
+      </div>
+      <div class="connector-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Bridge Relay Host</label><input id="mt4-host" placeholder="mt4-relay.signalbridge.io"></div>
+          <div class="form-group"><label>API Key</label><input id="mt4-apikey" type="password" placeholder="Bridge API key"></div>
+          <div class="form-group"><label>Account Number</label><input id="mt4-account" placeholder="MT4 account number"></div>
+          <div class="form-group"><label>EA Magic Number</label><input id="mt4-magic" type="number" value="88002"></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="testConn('mt4')">Test Connection</button>
+          <button class="btn btn-ghost" onclick="saveConn('mt4')">Save</button>
+        </div>
+        <div id="conn-result-mt4" class="hidden" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- TRADOVATE -->
+    <div class="connector-card">
+      <div class="connector-header">
+        <div class="connector-icon" style="background:rgba(160,100,255,0.12);color:#bf8fff">TV</div>
+        <div><div class="connector-name">Tradovate</div><div class="connector-type">REST API / WebSocket</div></div>
+        <span class="connected-badge" id="badge-tradovate">—</span>
+      </div>
+      <div class="connector-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Environment</label>
+            <select id="tv-host">
+              <option value="https://live.tradovateapi.com">Live (live.tradovateapi.com)</option>
+              <option value="https://demo.tradovateapi.com">Demo (demo.tradovateapi.com)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Account Spec</label><input id="tv-accountspec" placeholder="e.g. demo123456"></div>
+          <div class="form-group"><label>Username</label><input id="tv-username" placeholder="Tradovate username"></div>
+          <div class="form-group"><label>Password</label><input id="tv-password" type="password" placeholder="Tradovate password"></div>
+          <div class="form-group"><label>App ID (CID)</label><input id="tv-appid" placeholder="Application ID"></div>
+          <div class="form-group"><label>App Secret</label><input id="tv-appsecret" type="password" placeholder="Application Secret"></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="testConn('tradovate')">Test Connection</button>
+          <button class="btn btn-ghost" onclick="saveConn('tradovate')">Save</button>
+        </div>
+        <div id="conn-result-tradovate" class="hidden" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SETTINGS
+══════════════════════════════════════════════════ -->
+<div id="page-settings" class="page">
+  <div class="topbar">
+    <div><div class="page-title">Settings</div><div class="page-sub">Global risk controls & relay configuration</div></div>
+    <div class="topbar-actions"><button class="btn btn-primary" onclick="saveSettings()">Save All Settings</button></div>
+  </div>
+  <div class="content">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Risk Controls</span></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Global Max Position Size (lots)</label><input id="s-maxpos" type="number" step="0.01" min="0.01"></div>
+          <div class="form-group"><label>Daily Loss Limit ($)</label><input id="s-dailyloss" type="number" min="0"></div>
+          <div class="form-group"><label>Max Simultaneous Trades</label><input id="s-maxtrades" type="number" min="1"></div>
+          <div class="form-group"><label>Duplicate Signal Window (seconds)</label><input id="s-dedup" type="number" min="0"></div>
+        </div>
+        <div class="toggle"><div class="toggle-switch" id="s-halt-toggle" onclick="this.classList.toggle('on')"></div><span class="toggle-label">Halt all trading when daily loss limit is breached</span></div>
+        <div class="toggle"><div class="toggle-switch" id="s-reverse-toggle" onclick="this.classList.toggle('on')"></div><span class="toggle-label">Reverse signals — flip BUY↔SELL (mirror trading)</span></div>
+        <div class="toggle"><div class="toggle-switch" id="s-email-toggle" onclick="this.classList.toggle('on')"></div><span class="toggle-label">Send email alert on order errors</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">HMAC Security</span></div>
+      <div class="panel-body">
+        <div class="form-group"><label>Shared Secret (leave blank to disable signature verification)</label><input id="s-hmac" type="password" placeholder="Optional — must match TradingView alert secret"></div>
+        <p style="font-size:12px;color:var(--muted);margin-top:4px">When set, every incoming webhook must include a valid <code style="font-family:var(--mono)">X-Signature-256</code> header.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Server Info</span></div>
+      <div class="panel-body" id="server-info"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+// CONFIG — auto-detects current host
+// ══════════════════════════════════════════════════
+const API_BASE   = window.location.origin;
+const TOKEN_KEY  = 'sb_token';
+let   API_TOKEN  = localStorage.getItem(TOKEN_KEY) || 'abc123xyz9f2e1';
+
+// Save token whenever it changes
+function setToken(t) { API_TOKEN = t; localStorage.setItem(TOKEN_KEY, t); }
+
+// ══════════════════════════════════════════════════
+// API HELPERS
+// ══════════════════════════════════════════════════
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Api-Token': API_TOKEN }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API_BASE + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+const GET    = p       => api('GET', p);
+const POST   = (p, b)  => api('POST', p, b);
+const PATCH  = (p, b)  => api('PATCH', p, b);
+const PUT    = (p, b)  => api('PUT', p, b);
+const DELETE = p       => api('DELETE', p);
+
+// ══════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
 }
 
-function renderSymbolMap(filter = '') {
-  const platform = document.getElementById('sym-filter-platform')?.value || '';
-  const body = document.getElementById('symbol-map-body');
-  if (!body) return;
-  const filtered = symbolMap.filter(s =>
-    (!filter || s.tv.toLowerCase().includes(filter) || s.broker.toLowerCase().includes(filter)) &&
-    (!platform || s.platform === platform)
-  );
-  body.innerHTML = filtered.map((s, i) => `
-    <tr>
-      <td style="color:var(--accent);font-weight:600;">${s.tv}</td>
-      <td class="sym-arrow">→</td>
-      <td style="color:var(--text);">${s.broker}</td>
-      <td>${pb(s.platform)}</td>
-      <td>${catTag(s.cat)}</td>
-      <td style="color:var(--muted);">${s.pv}</td>
-      <td><button class="copy-btn" onclick="removeSymbol(${i})">Remove</button></td>
-    </tr>
-  `).join('');
+// ══════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════
+const PAGE_LOADERS = {
+  dashboard:  loadDashboard,
+  logs:       loadLogs,
+  webhook:    loadWebhook,
+  routes:     loadRoutes,
+  symbols:    loadSymbols,
+  connectors: loadConnectors,
+  settings:   loadSettings,
+};
+
+function nav(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes(`'${name}'`)) n.classList.add('active');
+  });
+  PAGE_LOADERS[name]?.();
 }
 
-// --- Actions ---
-function showTab(name) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const tabEl = document.getElementById('tab-' + name);
-  if (tabEl) tabEl.classList.remove('hidden');
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(el => { if (el.getAttribute('onclick')?.includes(name)) el.classList.add('active'); });
+// ══════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════
+function pb(platform) {
+  const map = { dxtrade:'pb-dxtrade', mt4:'pb-mt4', mt5:'pb-mt5', tradovate:'pb-tradovate' };
+  const labels = { dxtrade:'DX TRADE', mt4:'MT4', mt5:'MT5', tradovate:'TRADOVATE' };
+  return `<span class="platform-badge ${map[platform]||''}">${labels[platform]||platform.toUpperCase()}</span>`;
+}
+function catTag(cat) {
+  return `<span class="tag tag-${cat||'fx'}">${(cat||'fx').toUpperCase()}</span>`;
+}
+function statusBadge(s) {
+  const m = { ok:['ls-ok','OK'], error:['ls-err','ERROR'], err:['ls-err','ERROR'], simulated:['ls-pending','SIM'] };
+  const [cls,label] = m[s] || ['ls-pending', s?.toUpperCase()||'?'];
+  return `<span class="log-status ${cls}">${label}</span>`;
+}
+function fmtTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleTimeString('en-US', { hour12:false });
+}
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
+}
 
-  if (name === 'logs') renderFullLog();
-  if (name === 'routes') renderRoutesList();
-  if (name === 'symbols') renderSymbolMap();
+// ══════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════
+async function loadDashboard() {
+  // Health
+  try {
+    const h = await fetch(API_BASE + '/health').then(r => r.json());
+    document.getElementById('stat-health').textContent = 'ONLINE';
+    document.getElementById('stat-health').className = 'stat-value green';
+    document.getElementById('stat-health-sub').textContent = `v${h.version} · ${new Date(h.ts).toLocaleTimeString()}`;
+    document.getElementById('relay-dot').classList.remove('off');
+    document.getElementById('relay-status').textContent = 'CLOUD RELAY · LIVE';
+  } catch {
+    document.getElementById('stat-health').textContent = 'ERROR';
+    document.getElementById('stat-health').className = 'stat-value';
+    document.getElementById('stat-health').style.color = 'var(--danger)';
+    document.getElementById('relay-dot').classList.add('off');
+    document.getElementById('relay-status').textContent = 'RELAY OFFLINE';
+  }
+
+  // Stats
+  try {
+    const s = await GET('/api/stats');
+    document.getElementById('stat-signals').textContent  = s.signalsToday ?? '0';
+    document.getElementById('stat-success').textContent  = (s.successRate ?? '—') + '%';
+    document.getElementById('stat-routes').textContent   = `${s.activeRoutes} / ${s.totalRoutes}`;
+    document.getElementById('stat-signals-sub').textContent = 'signals today';
+    document.getElementById('stat-success-sub').textContent = 'of orders filled';
+    document.getElementById('stat-routes-sub').textContent  = `${s.totalRoutes - s.activeRoutes} paused`;
+    document.getElementById('live-route-count').textContent = `${s.activeRoutes} routes active`;
+    document.getElementById('badge-active').textContent = s.activeRoutes;
+  } catch(e) {
+    console.error('Stats error:', e);
+  }
+
+  // Recent log
+  try {
+    const logs = await GET('/api/log?limit=8');
+    renderLogItems('dash-log', logs, true);
+  } catch { document.getElementById('dash-log').innerHTML = '<div class="empty-state">No signals yet</div>'; }
+
+  // Route status
+  try {
+    const routes = await GET('/api/routes');
+    const el = document.getElementById('dash-routes');
+    if (!routes.length) { el.innerHTML = '<div class="empty-state">No routes configured</div>'; return; }
+    el.innerHTML = routes.map(r => `
+      <div class="route-item">
+        <div class="route-dot ${r.active?'on':'off'}"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${(r.symbols||[]).join(', ')||'ALL'}</div>
+        </div>
+        ${pb(r.platform)}
+      </div>`).join('');
+  } catch { document.getElementById('dash-routes').innerHTML = '<div class="empty-state">Could not load routes</div>'; }
+}
+
+function renderLogItems(containerId, logs, compact) {
+  const el = document.getElementById(containerId);
+  if (!logs || !logs.length) {
+    el.innerHTML = '<div class="empty-state">No signals recorded yet</div>';
+    return;
+  }
+  el.innerHTML = logs.map(entry => {
+    const sig     = entry.signal || {};
+    const results = entry.results || [];
+    const firstResult = results[0] || {};
+    const allOk   = results.every(r => r.status === 'ok' || r.status === 'simulated');
+    const hasErr  = results.some(r => r.status === 'error');
+    const overallStatus = results.length === 0 ? 'pending' : hasErr ? 'error' : 'ok';
+    const actionColor = sig.action === 'buy' ? 'var(--accent)' : 'var(--danger)';
+    const platforms = [...new Set(results.map(r => r.platform))];
+    return `<div class="log-item">
+      <span class="log-time">${fmtTime(entry.ts)}</span>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        <span style="color:${actionColor};font-weight:700">${(sig.action||'').toUpperCase()}</span>
+        <span style="color:var(--accent);margin:0 4px">${sig.symbol||'?'}</span>
+        <span style="color:var(--muted)">×${sig.qty||'?'}</span>
+        ${compact ? '' : platforms.map(p => pb(p)).join(' ')}
+      </span>
+      <span style="color:var(--muted);font-family:var(--mono);font-size:10px">${compact ? '' : fmtDate(entry.ts)}</span>
+      ${statusBadge(overallStatus)}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// SIGNAL LOG
+// ══════════════════════════════════════════════════
+async function loadLogs() {
+  const el = document.getElementById('full-log');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading…</div>';
+  try {
+    const platform = document.getElementById('log-filter-platform').value;
+    const status   = document.getElementById('log-filter-status').value;
+    let url = '/api/log?limit=200';
+    if (platform) url += `&platform=${platform}`;
+    if (status)   url += `&status=${status}`;
+    const logs = await GET(url);
+    renderLogItems('full-log', logs, false);
+  } catch(e) {
+    el.innerHTML = `<div class="alert-danger alert-box" style="margin:16px">Error: ${e.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// WEBHOOK
+// ══════════════════════════════════════════════════
+async function loadWebhook() {
+  document.getElementById('webhook-url-display').textContent =
+    `${API_BASE}/hook/${API_TOKEN}/signal`;
 }
 
 function copyWebhook() {
-  const url = `${WEBHOOK_BASE}/${webhookToken}/signal`;
+  const url = `${API_BASE}/hook/${API_TOKEN}/signal`;
   navigator.clipboard?.writeText(url);
-  const btn = event.target;
-  btn.textContent = 'Copied!';
-  setTimeout(() => btn.textContent = 'Copy', 1500);
+  toast('Webhook URL copied!');
 }
 
-function regenerateWebhook() {
-  webhookToken = Math.random().toString(36).substr(2, 14);
-  const url = `${WEBHOOK_BASE}/${webhookToken}/signal`;
-  document.getElementById('webhook-url-display').textContent = url;
+async function regenerateWebhook() {
+  if (!confirm('This will invalidate your current webhook URL. TradingView alerts will stop working until you update them. Continue?')) return;
+  try {
+    const res = await POST('/api/token/regenerate');
+    setToken(res.token);
+    document.getElementById('webhook-url-display').textContent = `${API_BASE}/hook/${API_TOKEN}/signal`;
+    toast('New webhook URL generated. Update your TradingView alerts!', 'success');
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
 }
 
-function toggleRoute(id) {
-  const r = routes.find(x => x.id === id);
-  if (r) r.active = !r.active;
-  renderRoutesList();
-  renderRouteStatus();
-  const active = routes.filter(x => x.active).length;
-  document.getElementById('stat-routes').textContent = `${active} / ${routes.length}`;
+async function sendTestSignal() {
+  const symbol = document.getElementById('test-symbol').value.trim() || 'EURUSD';
+  const action = document.getElementById('test-action').value;
+  const qty    = parseFloat(document.getElementById('test-qty').value) || 1;
+  const el     = document.getElementById('test-result');
+  el.className = 'alert-info alert-box';
+  el.textContent = 'Sending test…';
+  try {
+    const res = await POST(`/hook/${API_TOKEN}/test`, { symbol, action, qty });
+    el.className = 'alert-success alert-box';
+    el.innerHTML = `<strong>✓ Test OK</strong> — ${res.results?.length || 0} routes matched:<br>` +
+      (res.results||[]).map(r => `&nbsp;&nbsp;${pb(r.platform)} ${r.brokerSymbol} ×${r.qty} → ${r.status}`).join('<br>');
+  } catch(e) {
+    el.className = 'alert-danger alert-box';
+    el.textContent = '✗ Error: ' + e.message;
+  }
 }
 
-function deleteRoute(id) {
-  if (!confirm('Delete this route?')) return;
-  routes = routes.filter(x => x.id !== id);
-  renderRoutesList();
-  renderRouteStatus();
+// ══════════════════════════════════════════════════
+// ROUTES
+// ══════════════════════════════════════════════════
+let addRouteOpen = false;
+function toggleAddRoute() {
+  addRouteOpen = !addRouteOpen;
+  document.getElementById('add-route-panel').classList.toggle('hidden', !addRouteOpen);
 }
 
-function openAddRoute() {
-  const f = document.getElementById('add-route-form');
-  f.classList.toggle('hidden');
+async function loadRoutes() {
+  const el = document.getElementById('routes-list');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading routes…</div>';
+  try {
+    const routes = await GET('/api/routes');
+    if (!routes.length) {
+      el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>No routes yet. Add one above.</div>';
+      return;
+    }
+    el.innerHTML = routes.map(r => `
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="route-dot ${r.active?'on':'off'}"></div>
+            <span class="panel-title">${r.name}</span>
+            ${pb(r.platform)}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="toggleRoute('${r.id}','${!r.active}')">${r.active?'Pause':'Resume'}</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteRoute('${r.id}')">Delete</button>
+          </div>
+        </div>
+        <div class="panel-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+          <div><div class="stat-label">Symbols</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px">${(r.symbols||[]).join(', ')||'ALL'}</div></div>
+          <div><div class="stat-label">Multiplier</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px">${r.multiplier}×</div></div>
+          <div><div class="stat-label">Order Type</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px">${r.orderType||'MARKET'}</div></div>
+          <div><div class="stat-label">Status</div><div style="font-size:12px;margin-top:4px">${r.active ? '<span style="color:var(--accent)">● Active</span>' : '<span style="color:var(--muted)">○ Paused</span>'}</div></div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="alert-danger alert-box">Error loading routes: ${e.message}</div>`;
+  }
 }
 
-function updateRouteForm() {
-  const platform = document.getElementById('new-route-platform').value;
-  const extra = document.getElementById('route-extra-fields');
-  const fields = {
-    dxtrade: `<label>DX Trade Account</label><input type="text" placeholder="Account ID">`,
-    mt4: `<label>MT4 Account Number</label><input type="text" placeholder="MT4 account number">`,
-    mt5: `<label>MT5 Account Number</label><input type="text" placeholder="MT5 account number">`,
-    tradovate: `<label>Tradovate Account Spec</label><input type="text" placeholder="Account spec">`,
-  };
-  extra.innerHTML = platform ? `<div class="form-group">${fields[platform]||''}</div>` : '';
+async function saveRoute() {
+  const name       = document.getElementById('nr-name').value.trim();
+  const platform   = document.getElementById('nr-platform').value;
+  const symbolsRaw = document.getElementById('nr-symbols').value;
+  const multiplier = parseFloat(document.getElementById('nr-multiplier').value) || 1;
+  const orderType  = document.getElementById('nr-ordertype').value;
+  const maxDrawdown= parseFloat(document.getElementById('nr-drawdown').value) || 0;
+  const active     = document.getElementById('nr-active-toggle').classList.contains('on');
+
+  if (!name)     { toast('Route name is required', 'error'); return; }
+  if (!platform) { toast('Please select a platform', 'error'); return; }
+
+  const symbols = symbolsRaw ? symbolsRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
+
+  try {
+    await POST('/api/routes', { name, platform, symbols, multiplier, orderType, maxDrawdown, active });
+    toast('Route created!');
+    toggleAddRoute();
+    // Clear form
+    ['nr-name','nr-symbols'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('nr-platform').value = '';
+    document.getElementById('nr-multiplier').value = '1.0';
+    loadRoutes();
+    loadDashboard();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
-function saveRoute() {
-  const name = document.querySelector('#add-route-form input[type=text]').value || 'New Route';
-  const platform = document.getElementById('new-route-platform').value || 'mt5';
-  const newId = Math.max(...routes.map(r => r.id), 0) + 1;
-  routes.push({ id: newId, name, platform, active: true, symbols: 'ALL', multiplier: 1 });
-  document.getElementById('add-route-form').classList.add('hidden');
-  renderRoutesList();
-  renderRouteStatus();
+async function toggleRoute(id, newActive) {
+  try {
+    await PATCH(`/api/routes/${id}`, { active: newActive === 'true' });
+    toast(newActive === 'true' ? 'Route resumed' : 'Route paused');
+    loadRoutes();
+    loadDashboard();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
-function filterSymbols() {
-  const search = document.getElementById('sym-search')?.value.toLowerCase() || '';
-  renderSymbolMap(search);
+async function deleteRoute(id) {
+  if (!confirm('Delete this route? Signals will stop being forwarded to it.')) return;
+  try {
+    await DELETE(`/api/routes/${id}`);
+    toast('Route deleted');
+    loadRoutes();
+    loadDashboard();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
-function addSymbol() {
-  const tv = document.getElementById('new-tv-sym').value.trim().toUpperCase();
-  const broker = document.getElementById('new-broker-sym').value.trim();
+// ══════════════════════════════════════════════════
+// SYMBOL MAP
+// ══════════════════════════════════════════════════
+let allSymbols = [];
+
+async function loadSymbols() {
+  const tbody = document.getElementById('sym-tbody');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const map = await GET('/api/symbols');
+    allSymbols = [];
+    for (const [tvSym, entry] of Object.entries(map)) {
+      const platforms = ['dxtrade','mt4','mt5','tradovate'].filter(p => entry[p]);
+      platforms.forEach(p => {
+        allSymbols.push({ tv: tvSym, broker: entry[p], platform: p, cat: entry.category||'fx', pv: entry.pointValue||1 });
+      });
+    }
+    renderSymbolTable();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="alert-danger alert-box" style="margin:16px">Error: ${e.message}</div></td></tr>`;
+  }
+}
+
+function renderSymbolTable() {
+  const search   = (document.getElementById('sym-search')?.value || '').toLowerCase();
+  const platform = document.getElementById('sym-platform-filter')?.value || '';
+  const filtered = allSymbols.filter(s =>
+    (!search   || s.tv.toLowerCase().includes(search) || s.broker.toLowerCase().includes(search)) &&
+    (!platform || s.platform === platform)
+  );
+  const tbody = document.getElementById('sym-tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No symbols found</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(s => `
+    <tr>
+      <td style="color:var(--accent);font-weight:600">${s.tv}</td>
+      <td style="color:var(--muted)">→</td>
+      <td>${s.broker}</td>
+      <td>${pb(s.platform)}</td>
+      <td>${catTag(s.cat)}</td>
+      <td style="color:var(--muted)">${s.pv}</td>
+      <td><button class="copy-btn" onclick="removeSymbol('${s.tv}','${s.platform}')">Remove</button></td>
+    </tr>`).join('');
+}
+
+function filterSymbols() { renderSymbolTable(); }
+
+async function addSymbol() {
+  const tv       = document.getElementById('new-tv').value.trim().toUpperCase();
+  const broker   = document.getElementById('new-broker').value.trim();
   const platform = document.getElementById('new-sym-platform').value;
-  const cat = document.getElementById('new-sym-category').value;
-  const pv = parseFloat(document.getElementById('new-sym-pv').value) || 1;
-  if (!tv || !broker) return;
-  symbolMap.push({ tv, broker, platform, cat, pv });
-  document.getElementById('new-tv-sym').value = '';
-  document.getElementById('new-broker-sym').value = '';
-  renderSymbolMap();
+  const category = document.getElementById('new-sym-cat').value;
+  const pv       = parseFloat(document.getElementById('new-sym-pv').value) || 1;
+  if (!tv || !broker) { toast('TV symbol and broker symbol are required', 'error'); return; }
+  try {
+    await POST('/api/symbols', { tvSymbol: tv, platform, brokerSymbol: broker, category, pointValue: pv });
+    toast(`${tv} → ${broker} added`);
+    document.getElementById('new-tv').value = '';
+    document.getElementById('new-broker').value = '';
+    loadSymbols();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
-function removeSymbol(i) {
-  symbolMap.splice(i, 1);
-  renderSymbolMap();
+async function removeSymbol(tvSym, platform) {
+  if (!confirm(`Remove ${tvSym} mapping for ${platform}?`)) return;
+  try {
+    // Fetch current, remove the platform entry, PUT back
+    const map = await GET('/api/symbols');
+    if (map[tvSym]) {
+      delete map[tvSym][platform];
+      if (Object.keys(map[tvSym]).filter(k => !['category','pointValue'].includes(k)).length === 0) {
+        delete map[tvSym];
+      }
+      await PUT('/api/symbols', map);
+    }
+    toast(`${tvSym} mapping removed`);
+    loadSymbols();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
-function testConn(name) {
-  const btn = event.target;
-  btn.textContent = 'Testing…';
-  btn.disabled = true;
-  setTimeout(() => {
-    btn.textContent = '✓ Connected';
-    btn.style.background = 'rgba(0,229,160,0.12)';
-    btn.style.color = 'var(--accent)';
-    setTimeout(() => {
-      btn.textContent = 'Test Connection';
-      btn.disabled = false;
-      btn.style.background = '';
-      btn.style.color = '';
-    }, 2000);
-  }, 1200);
+function exportSymbols() {
+  const rows = [['TV Symbol','Broker Symbol','Platform','Category','Point Value']];
+  allSymbols.forEach(s => rows.push([s.tv, s.broker, s.platform, s.cat, s.pv]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a   = document.createElement('a');
+  a.href    = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'signalbridge-symbols.csv';
+  a.click();
 }
 
-function refreshLogs() {
-  sampleSignals.unshift({
-    time: new Date().toTimeString().slice(0,8),
-    sym: ['EURUSD','NQ1!','ES1!','XAUUSD'][Math.floor(Math.random()*4)],
-    action: Math.random() > 0.5 ? 'BUY' : 'SELL',
-    qty: (Math.random()*2+0.1).toFixed(1),
-    platform: ['mt5','tradovate','dxtrade'][Math.floor(Math.random()*3)],
-    status: Math.random() > 0.1 ? 'ok' : 'err'
-  });
-  if (sampleSignals.length > 20) sampleSignals.pop();
-  renderLiveLog();
-  const sig = parseInt(document.getElementById('stat-signals').textContent);
-  document.getElementById('stat-signals').textContent = sig + 1;
+// ══════════════════════════════════════════════════
+// CONNECTORS
+// ══════════════════════════════════════════════════
+async function loadConnectors() {
+  try {
+    const data = await GET('/api/connectors');
+
+    // DX Trade
+    if (data.dxtrade) {
+      document.getElementById('dx-host').value      = data.dxtrade.host || '';
+      document.getElementById('dx-username').value  = data.dxtrade.username || '';
+      document.getElementById('dx-accountid').value = data.dxtrade.accountId || '';
+    }
+    // MT5
+    if (data.mt5) {
+      document.getElementById('mt5-host').value    = data.mt5.host || '';
+      document.getElementById('mt5-account').value = data.mt5.accountId || '';
+    }
+    // MT4
+    if (data.mt4) {
+      document.getElementById('mt4-host').value    = data.mt4.host || '';
+      document.getElementById('mt4-account').value = data.mt4.accountId || '';
+    }
+    // Tradovate
+    if (data.tradovate) {
+      document.getElementById('tv-host').value        = data.tradovate.host || 'https://demo.tradovateapi.com';
+      document.getElementById('tv-accountspec').value = data.tradovate.accountSpec || '';
+      document.getElementById('tv-username').value    = data.tradovate.username || '';
+    }
+  } catch(e) { console.error('Connectors load error:', e); }
 }
 
-function exportMap() { alert('Symbol map exported as CSV'); }
-function importMap() { alert('Select a CSV file to import symbol mappings'); }
-function downloadEA() { alert('SignalBridge_EA_v2.ex5 download would start here'); }
+async function saveConn(platform) {
+  let body = {};
+  if (platform === 'dxtrade') {
+    body = {
+      host:      document.getElementById('dx-host').value.trim(),
+      username:  document.getElementById('dx-username').value.trim(),
+      password:  document.getElementById('dx-password').value,
+      accountId: document.getElementById('dx-accountid').value.trim(),
+    };
+  } else if (platform === 'mt5' || platform === 'mt4') {
+    body = {
+      host:      document.getElementById(`${platform}-host`).value.trim(),
+      apiKey:    document.getElementById(`${platform}-apikey`).value,
+      accountId: document.getElementById(`${platform}-account`).value.trim(),
+      magic:     parseInt(document.getElementById(`${platform}-magic`).value) || 88001,
+    };
+  } else if (platform === 'tradovate') {
+    body = {
+      host:        document.getElementById('tv-host').value,
+      accountSpec: document.getElementById('tv-accountspec').value.trim(),
+      username:    document.getElementById('tv-username').value.trim(),
+      password:    document.getElementById('tv-password').value,
+      appId:       document.getElementById('tv-appid').value.trim(),
+      appSecret:   document.getElementById('tv-appsecret').value,
+    };
+  }
+  try {
+    await PUT(`/api/connectors/${platform}`, body);
+    toast(`${platform.toUpperCase()} credentials saved`);
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
 
-// --- Init ---
+async function testConn(platform) {
+  const resultEl = document.getElementById(`conn-result-${platform}`);
+  resultEl.className = 'alert-info alert-box';
+  resultEl.textContent = 'Testing connection…';
+
+  // Save first so credentials are up to date
+  await saveConn(platform);
+
+  try {
+    const res = await POST(`/api/connectors/${platform}/test`);
+    resultEl.className = 'alert-success alert-box';
+    resultEl.textContent = `✓ Connected — ${res.message || 'OK'}`;
+    document.getElementById(`badge-${platform}`).className = 'connected-badge cb-yes';
+    document.getElementById(`badge-${platform}`).textContent = 'CONNECTED';
+    toast(`${platform.toUpperCase()} connection successful!`);
+  } catch(e) {
+    resultEl.className = 'alert-danger alert-box';
+    resultEl.textContent = `✗ Failed — ${e.message}`;
+    document.getElementById(`badge-${platform}`).className = 'connected-badge cb-no';
+    document.getElementById(`badge-${platform}`).textContent = 'FAILED';
+    toast(`${platform.toUpperCase()} connection failed`, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════
+function markSettingsDirty() {}
+
+async function loadSettings() {
+  try {
+    const s = await GET('/api/settings');
+    document.getElementById('s-maxpos').value    = s.maxPositionSize ?? 10;
+    document.getElementById('s-dailyloss').value = s.dailyLossLimit ?? 500;
+    document.getElementById('s-maxtrades').value = s.maxSimultaneousTrades ?? 5;
+    document.getElementById('s-dedup').value     = s.duplicateWindowSecs ?? 30;
+    document.getElementById('s-hmac').placeholder = s.hmacSecret ? '(set — hidden)' : 'Optional';
+
+    const toggle = (id, val) => document.getElementById(id).classList.toggle('on', !!val);
+    toggle('s-halt-toggle',    s.haltOnDailyLoss);
+    toggle('s-reverse-toggle', s.reverseSignals);
+    toggle('s-email-toggle',   s.emailAlerts);
+  } catch(e) { console.error('Settings load error:', e); }
+
+  // Server info
+  try {
+    const h = await fetch(API_BASE + '/health').then(r => r.json());
+    document.getElementById('server-info').innerHTML = `
+      <div class="form-grid">
+        <div><div class="stat-label">Version</div><div style="font-family:var(--mono);font-size:13px;margin-top:4px">${h.version}</div></div>
+        <div><div class="stat-label">Server Time</div><div style="font-family:var(--mono);font-size:13px;margin-top:4px">${new Date(h.ts).toLocaleString()}</div></div>
+        <div><div class="stat-label">Total Routes</div><div style="font-family:var(--mono);font-size:13px;margin-top:4px">${h.routes}</div></div>
+        <div><div class="stat-label">Signals Today</div><div style="font-family:var(--mono);font-size:13px;margin-top:4px">${h.signalsToday}</div></div>
+        <div class="full"><div class="stat-label">Webhook URL</div><div style="font-family:var(--mono);font-size:11px;margin-top:4px;color:var(--accent);word-break:break-all">${API_BASE}/hook/${API_TOKEN}/signal</div></div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('server-info').innerHTML = '<div class="alert-danger alert-box">Server unreachable</div>';
+  }
+}
+
+async function saveSettings() {
+  const body = {
+    maxPositionSize:       parseFloat(document.getElementById('s-maxpos')?.value) || 10,
+    dailyLossLimit:        parseFloat(document.getElementById('s-dailyloss')?.value) || 500,
+    maxSimultaneousTrades: parseInt(document.getElementById('s-maxtrades')?.value) || 5,
+    duplicateWindowSecs:   parseInt(document.getElementById('s-dedup')?.value) || 30,
+    haltOnDailyLoss:       document.getElementById('s-halt-toggle')?.classList.contains('on'),
+    reverseSignals:        document.getElementById('s-reverse-toggle')?.classList.contains('on'),
+    emailAlerts:           document.getElementById('s-email-toggle')?.classList.contains('on'),
+  };
+  const hmac = document.getElementById('s-hmac')?.value;
+  if (hmac) body.hmacSecret = hmac;
+
+  try {
+    await PATCH('/api/settings', body);
+    toast('Settings saved!');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════
+// WEBSOCKET — live signal feed
+// ══════════════════════════════════════════════════
+function connectWS() {
+  const wsUrl = `${API_BASE.replace('http','ws')}/hook?token=${API_TOKEN}`;
+  // Use the main WS endpoint on the server
+  const ws = new WebSocket(`${location.origin.replace('http','ws')}?token=${API_TOKEN}`);
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'signal') {
+        // Refresh dashboard if visible
+        if (document.getElementById('page-dashboard').classList.contains('active')) loadDashboard();
+        if (document.getElementById('page-logs').classList.contains('active'))      loadLogs();
+      }
+    } catch {}
+  };
+  ws.onclose = () => setTimeout(connectWS, 5000);
+  ws.onerror = () => ws.close();
+}
+
+// ══════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('webhook-url-display').textContent = `${WEBHOOK_BASE}/${webhookToken}/signal`;
-  renderLiveLog();
-  renderRouteStatus();
+  loadDashboard();
+  // Try WS, fall back gracefully
+  try { connectWS(); } catch {}
 });
 </script>
 </body>
