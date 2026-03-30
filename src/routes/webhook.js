@@ -110,3 +110,33 @@ router.post('/:token/test', resolveToken, async (req, res) => {
 });
 
 module.exports = router;
+
+// ─── POST /hook/:token/fire — REAL live order, logs it, full pipeline ─────────
+router.post('/:token/fire', resolveToken, async (req, res) => {
+  const user = req.user;
+
+  // Validate payload same as real signal
+  const { valid, errors, signal } = validateSignal(req.body);
+  if (!valid) {
+    return res.status(400).json({ error: 'Invalid signal payload', details: errors });
+  }
+
+  log.info(`[FIRE] LIVE TEST: ${signal.action.toUpperCase()} ${signal.symbol} x${signal.qty}`);
+
+  // Run through full routing engine — real orders placed
+  const results = await routeSignal(user, signal, req.app.get('wss'));
+
+  // Log it same as a real signal
+  const entry = {
+    id:     store.nextLogId(),
+    ts:     new Date().toISOString(),
+    signal: { ...signal, _liveTest: true },
+    results,
+    ip:     req.ip,
+    userId: user.userId,
+  };
+  store.appendLog(entry);
+  store.incrementSignalsToday();
+
+  res.json({ status: 'fired', signal, results });
+});

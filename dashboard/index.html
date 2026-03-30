@@ -414,6 +414,51 @@ textarea{resize:vertical;min-height:80px}
       </div>
     </div>
 
+    <!-- Live fire panel -->
+    <div class="panel" style="border-color:rgba(255,59,48,0.25)">
+      <div class="panel-header" style="border-color:rgba(255,59,48,0.15)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;animation:pulse 1.5s infinite"></span>
+          <span class="panel-title">Live Fire Test — Real Orders</span>
+        </div>
+        <span class="chip" style="border-color:rgba(255,59,48,0.3);color:var(--danger)">SENDS REAL ORDERS</span>
+      </div>
+      <div class="panel-body">
+        <div class="alert-danger alert-box">🔴 <strong>This places a real order on your connected broker.</strong> Use a demo account or minimum lot size. The order will appear in your trading platform immediately.</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Symbol</label>
+            <input id="fire-symbol" value="US100" style="width:130px">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Action</label>
+            <select id="fire-action" style="width:100px">
+              <option value="buy">BUY</option>
+              <option value="sell">SELL</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Qty / Lots</label>
+            <input id="fire-qty" type="number" value="0.01" step="0.01" min="0.01" style="width:90px">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Stop Loss (optional)</label>
+            <input id="fire-sl" placeholder="price" style="width:110px">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Take Profit (optional)</label>
+            <input id="fire-tp" placeholder="price" style="width:110px">
+          </div>
+          <button class="btn" id="fire-btn" onclick="sendLiveFire()"
+            style="background:var(--danger);color:#fff;white-space:nowrap;border:none">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px"><path d="M7 1v6M4 4l3-3 3 3M2 10h10M4 13h6"/></svg>
+            Fire Live Order
+          </button>
+        </div>
+        <div id="fire-result" class="hidden"></div>
+      </div>
+    </div>
+
     <!-- Security -->
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Webhook Security</span></div>
@@ -1338,6 +1383,66 @@ function connectWS() {
   ws.onerror = () => ws.close();
 }
 
+
+// ── Live fire ─────────────────────────────────────────────────────────────────
+async function sendLiveFire() {
+  const symbol = document.getElementById('fire-symbol').value.trim().toUpperCase() || 'US100';
+  const action = document.getElementById('fire-action').value;
+  const qty    = parseFloat(document.getElementById('fire-qty').value) || 0.01;
+  const sl     = document.getElementById('fire-sl').value.trim() || null;
+  const tp     = document.getElementById('fire-tp').value.trim() || null;
+  const el     = document.getElementById('fire-result');
+  const btn    = document.getElementById('fire-btn');
+
+  if (!confirm(`⚠️ This will place a REAL ${action.toUpperCase()} order for ${symbol} ×${qty} on your connected broker.\n\nContinue?`)) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Firing…';
+  el.className = 'alert-info alert-box';
+  el.textContent = `Sending live ${action.toUpperCase()} ${symbol} ×${qty} to broker…`;
+
+  try {
+    const body = { action, symbol, qty };
+    if (sl) body.sl = sl;
+    if (tp) body.tp = tp;
+
+    const res = await fetch(`${API_BASE}/hook/${API_TOKEN}/fire`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Token': API_TOKEN },
+      body: JSON.stringify(body),
+    }).then(r => r.json());
+
+    const results = res.results || [];
+    const allOk   = results.every(r => r.status === 'ok');
+    const hasErr  = results.some(r => r.status === 'error');
+
+    el.className = hasErr ? 'alert-danger alert-box' : 'alert-success alert-box';
+
+    if (results.length === 0) {
+      el.innerHTML = `⚠️ No routes matched <strong>${symbol}</strong>. Check your Signal Routes.`;
+    } else {
+      el.innerHTML =
+        `<strong>${allOk ? '✓' : '⚠'} ${results.length} route${results.length>1?'s':''} executed:</strong><br><br>` +
+        results.map(r => {
+          const icon   = r.status === 'ok' ? '✓' : '✗';
+          const color  = r.status === 'ok' ? 'var(--accent)' : 'var(--danger)';
+          const detail = r.status === 'ok'
+            ? `Order ID: <span style="font-family:var(--mono)">${r.orderId || '—'}</span>`
+            : `Error: <span style="color:var(--danger)">${r.error}</span>`;
+          return `&nbsp;&nbsp;<span style="color:${color}">${icon}</span> ${pb(r.platform)} ` +
+                 `<span style="font-family:var(--mono);color:var(--accent)">${r.brokerSymbol}</span> ` +
+                 `×<span style="font-family:var(--mono)">${r.qty ?? qty}</span> — ${detail}`;
+        }).join('<br>') +
+        `<br><br><span style="font-size:11px;color:var(--muted)">Check your broker platform to confirm the order. See Signal Log for full details.</span>`;
+    }
+  } catch(e) {
+    el.className = 'alert-danger alert-box';
+    el.textContent = '✗ Request failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px"><path d="M7 1v6M4 4l3-3 3 3M2 10h10M4 13h6"/></svg> Fire Live Order';
+  }
+}
 
 // DX Trade custom instrument IDs
 window._dxInstrumentIds = {};
