@@ -483,40 +483,83 @@ textarea{resize:vertical;min-height:80px}
   <div class="topbar">
     <div><div class="page-title">Signal Routes</div><div class="page-sub">Map webhook signals to broker accounts</div></div>
     <div class="topbar-actions">
-      <button class="btn btn-primary" onclick="toggleAddRoute()">
-        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v10M2 7h10"/></svg>Add Route
+      <button class="btn btn-primary" id="btn-add-route" onclick="openRouteForm()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v10M2 7h10"/></svg>New Route
       </button>
     </div>
   </div>
   <div class="content">
-    <!-- Add route form -->
-    <div id="add-route-panel" class="panel hidden">
-      <div class="panel-header"><span class="panel-title">New Signal Route</span></div>
+
+    <!-- ── Inline route form (create + edit) ── -->
+    <div id="route-form-panel" class="panel hidden" style="border-color:rgba(0,229,160,0.25);margin-bottom:20px">
+      <div class="panel-header" style="border-color:rgba(0,229,160,0.12)">
+        <span class="panel-title" id="route-form-title">New Route</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeRouteForm()">✕ Cancel</button>
+      </div>
       <div class="panel-body">
+        <input type="hidden" id="rf-id">
+
         <div class="form-grid">
-          <div class="form-group"><label>Route Name</label><input id="nr-name" placeholder="e.g. FX Pairs → DX Trade"></div>
-          <div class="form-group"><label>Destination Platform</label>
-            <select id="nr-platform">
+          <div class="form-group">
+            <label>Route Name <span style="color:var(--danger)">*</span></label>
+            <input id="rf-name" placeholder="e.g. US100 → DX Trade">
+            <span id="rf-name-err" style="font-size:11px;color:var(--danger);display:none">Required</span>
+          </div>
+          <div class="form-group">
+            <label>Destination Platform <span style="color:var(--danger)">*</span></label>
+            <select id="rf-platform">
               <option value="">Select platform…</option>
-              <option value="dxtrade">DX Trade / Liquid Charts</option>
+              <option value="dxtrade">DX Trade CFD</option>
               <option value="mt4">MetaTrader 4</option>
               <option value="mt5">MetaTrader 5</option>
               <option value="tradovate">Tradovate</option>
             </select>
+            <span id="rf-platform-err" style="font-size:11px;color:var(--danger);display:none">Required</span>
           </div>
-          <div class="form-group"><label>Symbol Filter (blank = all symbols)</label><input id="nr-symbols" placeholder="EURUSD, GBPUSD, XAUUSD"></div>
-          <div class="form-group"><label>Lot Multiplier</label><input id="nr-multiplier" type="number" value="1.0" step="0.01" min="0.01"></div>
-          <div class="form-group"><label>Order Type</label><select id="nr-ordertype"><option value="MARKET">Market</option><option value="LIMIT">Limit</option></select></div>
-          <div class="form-group"><label>Max Drawdown Halt (%)</label><input id="nr-drawdown" type="number" value="0" min="0"></div>
+          <div class="form-group">
+            <label>Symbol Filter</label>
+            <input id="rf-symbols" placeholder="US100, EURUSD, XAUUSD  (blank = all symbols)">
+            <span style="font-size:11px;color:var(--muted)">Comma-separated TradingView tickers. Leave blank to forward ALL symbols to this broker.</span>
+          </div>
+          <div class="form-group">
+            <label>Lot Multiplier</label>
+            <input id="rf-multiplier" type="number" value="1.0" step="0.01" min="0.01">
+            <span style="font-size:11px;color:var(--muted)">1.0 = same size as signal. 0.5 = half. 2 = double.</span>
+          </div>
+          <div class="form-group">
+            <label>Order Type</label>
+            <select id="rf-ordertype">
+              <option value="MARKET">Market (execute immediately at best price)</option>
+              <option value="LIMIT">Limit (execute at signal price or better)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Max Drawdown Halt (%)</label>
+            <input id="rf-drawdown" type="number" value="0" min="0">
+            <span style="font-size:11px;color:var(--muted)">Pause route if drawdown exceeds this %. 0 = disabled.</span>
+          </div>
         </div>
-        <div class="toggle"><div class="toggle-switch on" id="nr-active-toggle" onclick="this.classList.toggle('on')"></div><span class="toggle-label">Activate immediately</span></div>
-        <div style="display:flex;gap:10px;margin-top:8px">
-          <button class="btn btn-primary" onclick="saveRoute()">Save Route</button>
-          <button class="btn btn-ghost" onclick="toggleAddRoute()">Cancel</button>
+
+        <div class="toggle" style="margin-top:4px">
+          <div class="toggle-switch on" id="rf-active-toggle" onclick="this.classList.toggle('on')"></div>
+          <span class="toggle-label">Active — route is live and will forward signals</span>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:20px;align-items:center">
+          <button class="btn btn-primary" id="rf-save-btn" onclick="saveRoute()">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px"><path d="M2 7l4 4 6-7"/></svg>
+            Save Route
+          </button>
+          <button class="btn btn-ghost" onclick="closeRouteForm()">Cancel</button>
+          <span id="rf-saving" class="hidden" style="font-size:12px;color:var(--muted);font-family:var(--mono)">Saving…</span>
+          <span id="rf-error" class="hidden" style="font-size:12px;color:var(--danger)"></span>
         </div>
       </div>
     </div>
+
+    <!-- ── Route list ── -->
     <div id="routes-list"><div class="loading"><div class="spinner"></div>Loading routes…</div></div>
+
   </div>
 </div>
 
@@ -1039,10 +1082,85 @@ async function sendTestSignal() {
 // ══════════════════════════════════════════════════
 // ROUTES
 // ══════════════════════════════════════════════════
-let addRouteOpen = false;
-function toggleAddRoute() {
-  addRouteOpen = !addRouteOpen;
-  document.getElementById('add-route-panel').classList.toggle('hidden', !addRouteOpen);
+
+function openRouteForm(route) {
+  const isEdit = !!route;
+  document.getElementById('route-form-title').textContent = isEdit ? 'Edit Route' : 'New Route';
+  document.getElementById('rf-id').value          = route?.id || '';
+  document.getElementById('rf-name').value        = route?.name || '';
+  document.getElementById('rf-platform').value    = route?.platform || '';
+  document.getElementById('rf-symbols').value     = (route?.symbols || []).join(', ');
+  document.getElementById('rf-multiplier').value  = route?.multiplier ?? 1.0;
+  document.getElementById('rf-ordertype').value   = route?.orderType || 'MARKET';
+  document.getElementById('rf-drawdown').value    = route?.maxDrawdown ?? 0;
+  document.getElementById('rf-active-toggle').classList.toggle('on', route ? !!route.active : true);
+  document.getElementById('rf-name-err').style.display     = 'none';
+  document.getElementById('rf-platform-err').style.display = 'none';
+  document.getElementById('rf-error').classList.add('hidden');
+  document.getElementById('rf-saving').classList.add('hidden');
+  document.getElementById('rf-save-btn').disabled = false;
+  document.getElementById('rf-save-btn').textContent = isEdit ? 'Update Route' : 'Save Route';
+  document.getElementById('route-form-panel').classList.remove('hidden');
+  document.getElementById('route-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('rf-name').focus();
+}
+
+function closeRouteForm() {
+  document.getElementById('route-form-panel').classList.add('hidden');
+  document.getElementById('rf-id').value = '';
+}
+
+async function saveRoute() {
+  const id          = document.getElementById('rf-id').value.trim();
+  const name        = document.getElementById('rf-name').value.trim();
+  const platform    = document.getElementById('rf-platform').value;
+  const symbolsRaw  = document.getElementById('rf-symbols').value;
+  const multiplier  = parseFloat(document.getElementById('rf-multiplier').value) || 1;
+  const orderType   = document.getElementById('rf-ordertype').value;
+  const maxDrawdown = parseFloat(document.getElementById('rf-drawdown').value) || 0;
+  const active      = document.getElementById('rf-active-toggle').classList.contains('on');
+  const isEdit      = !!id;
+
+  // Inline validation
+  let valid = true;
+  const nameErr = document.getElementById('rf-name-err');
+  const platErr = document.getElementById('rf-platform-err');
+  nameErr.style.display = !name     ? 'block' : 'none'; if (!name)     valid = false;
+  platErr.style.display = !platform ? 'block' : 'none'; if (!platform) valid = false;
+  if (!valid) { document.getElementById('rf-name').focus(); return; }
+
+  const symbols = symbolsRaw
+    ? symbolsRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+    : [];
+
+  const payload = { name, platform, symbols, multiplier, orderType, maxDrawdown, active };
+
+  // Show saving state
+  const btn     = document.getElementById('rf-save-btn');
+  const saving  = document.getElementById('rf-saving');
+  const errEl   = document.getElementById('rf-error');
+  btn.disabled  = true;
+  saving.classList.remove('hidden');
+  errEl.classList.add('hidden');
+
+  try {
+    if (isEdit) {
+      await PATCH(`/api/routes/${id}`, payload);
+      toast('Route updated!');
+    } else {
+      await POST('/api/routes', payload);
+      toast('Route created!');
+    }
+    closeRouteForm();
+    await loadRoutes();
+    loadDashboard();
+  } catch(e) {
+    errEl.textContent = '✗ ' + e.message;
+    errEl.classList.remove('hidden');
+    btn.disabled = false;
+  } finally {
+    saving.classList.add('hidden');
+  }
 }
 
 async function loadRoutes() {
@@ -1051,65 +1169,59 @@ async function loadRoutes() {
   try {
     const routes = await GET('/api/routes');
     if (!routes.length) {
-      el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>No routes yet. Add one above.</div>';
+      el.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        <div style="margin-top:8px">No routes yet.</div>
+        <div style="font-size:12px;margin-top:4px">Click <strong>New Route</strong> above to create your first signal route.</div>
+      </div>`;
       return;
     }
-    el.innerHTML = routes.map(r => `
-      <div class="panel" style="margin-bottom:14px">
+    el.innerHTML = routes.map(r => {
+      const symDisplay = (r.symbols||[]).length ? r.symbols.join(', ') : '<span style="color:var(--muted)">ALL symbols</span>';
+      return `<div class="panel" style="margin-bottom:12px;${r.active ? '' : 'opacity:0.65'}">
         <div class="panel-header">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div class="route-dot ${r.active?'on':'off'}"></div>
-            <span class="panel-title">${r.name}</span>
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
+            <div class="route-dot ${r.active?'on':'off'}" style="flex-shrink:0"></div>
+            <span class="panel-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</span>
             ${pb(r.platform)}
           </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="toggleRoute('${r.id}','${!r.active}')">${r.active?'Pause':'Resume'}</button>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" onclick="openRouteForm(${JSON.stringify(JSON.stringify(r)).slice(1,-1)})">Edit</button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleRoute('${r.id}',${!r.active})">${r.active?'Pause':'Resume'}</button>
             <button class="btn btn-danger btn-sm" onclick="deleteRoute('${r.id}')">Delete</button>
           </div>
         </div>
-        <div class="panel-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-          <div><div class="stat-label">Symbols</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px">${(r.symbols||[]).join(', ')||'ALL'}</div></div>
-          <div><div class="stat-label">Multiplier</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px">${r.multiplier}×</div></div>
-          <div><div class="stat-label">Order Type</div><div style="font-family:var(--mono);font-size:12px;margin-top:4px">${r.orderType||'MARKET'}</div></div>
-          <div><div class="stat-label">Status</div><div style="font-size:12px;margin-top:4px">${r.active ? '<span style="color:var(--accent)">● Active</span>' : '<span style="color:var(--muted)">○ Paused</span>'}</div></div>
+        <div class="panel-body" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;padding:12px 18px">
+          <div>
+            <div class="stat-label">Symbol Filter</div>
+            <div style="font-family:var(--mono);font-size:12px;margin-top:4px">${symDisplay}</div>
+          </div>
+          <div>
+            <div class="stat-label">Multiplier</div>
+            <div style="font-family:var(--mono);font-size:12px;margin-top:4px">${r.multiplier}×</div>
+          </div>
+          <div>
+            <div class="stat-label">Order Type</div>
+            <div style="font-family:var(--mono);font-size:12px;margin-top:4px">${r.orderType||'MARKET'}</div>
+          </div>
+          <div>
+            <div class="stat-label">Status</div>
+            <div style="font-size:12px;margin-top:4px">${r.active
+              ? '<span style="color:var(--accent)">● Active</span>'
+              : '<span style="color:var(--muted)">○ Paused</span>'}</div>
+          </div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch(e) {
     el.innerHTML = `<div class="alert-danger alert-box">Error loading routes: ${e.message}</div>`;
   }
 }
 
-async function saveRoute() {
-  const name       = document.getElementById('nr-name').value.trim();
-  const platform   = document.getElementById('nr-platform').value;
-  const symbolsRaw = document.getElementById('nr-symbols').value;
-  const multiplier = parseFloat(document.getElementById('nr-multiplier').value) || 1;
-  const orderType  = document.getElementById('nr-ordertype').value;
-  const maxDrawdown= parseFloat(document.getElementById('nr-drawdown').value) || 0;
-  const active     = document.getElementById('nr-active-toggle').classList.contains('on');
-
-  if (!name)     { toast('Route name is required', 'error'); return; }
-  if (!platform) { toast('Please select a platform', 'error'); return; }
-
-  const symbols = symbolsRaw ? symbolsRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
-
-  try {
-    await POST('/api/routes', { name, platform, symbols, multiplier, orderType, maxDrawdown, active });
-    toast('Route created!');
-    toggleAddRoute();
-    // Clear form
-    ['nr-name','nr-symbols'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('nr-platform').value = '';
-    document.getElementById('nr-multiplier').value = '1.0';
-    loadRoutes();
-    loadDashboard();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
 async function toggleRoute(id, newActive) {
   try {
-    await PATCH(`/api/routes/${id}`, { active: newActive === 'true' });
-    toast(newActive === 'true' ? 'Route resumed' : 'Route paused');
+    await PATCH(`/api/routes/${id}`, { active: !!newActive });
+    toast(newActive ? 'Route resumed' : 'Route paused');
     loadRoutes();
     loadDashboard();
   } catch(e) { toast('Error: ' + e.message, 'error'); }
@@ -1120,15 +1232,11 @@ async function deleteRoute(id) {
   try {
     await DELETE(`/api/routes/${id}`);
     toast('Route deleted');
+    closeRouteForm();
     loadRoutes();
     loadDashboard();
   } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
-
-// ══════════════════════════════════════════════════
-// SYMBOL MAP
-// ══════════════════════════════════════════════════
-let allSymbols = [];
 
 async function loadSymbols() {
   const tbody = document.getElementById('sym-tbody');
