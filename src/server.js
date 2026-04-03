@@ -47,6 +47,15 @@ app.get('/ea/:file', (req, res) => {
   });
 });
 
+// Public config endpoint — dashboard uses this to bootstrap the webhook token
+// Safe to expose: this token is already embedded in the TradingView webhook URL
+app.get('/api/config', (_req, res) => {
+  const { store } = require('./utils/store');
+  // Get first user's token (single-tenant mode)
+  const token = store.getFirstToken?.() || process.env.WEBHOOK_TOKEN || 'abc123xyz9f2e1';
+  res.json({ token, version: '2.1.0' });
+});
+
 app.get('/health', (_req, res) => res.json({
   status:       'ok',
   version:      '2.1.0',

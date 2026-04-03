@@ -1743,15 +1743,16 @@ async function api(method, path, body) {
   };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API_BASE + path, opts);
-  const data = await res.json();
+  let data;
+  try { data = await res.json(); } catch(e) { data = {}; }
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
-const GET   = (p)    => api('GET',    p);
-const POST  = (p, b) => api('POST',   p, b);
-const PUT   = (p, b) => api('PUT',    p, b);
-const PATCH = (p, b) => api('PATCH',  p, b);
-const DELETE = p     => api('DELETE', p);
+const GET    = (p)    => api('GET',    p);
+const POST   = (p, b) => api('POST',   p, b);
+const PUT    = (p, b) => api('PUT',    p, b);
+const PATCH  = (p, b) => api('PATCH',  p, b);
+const DELETE = p      => api('DELETE', p);
 
 // ── Toast ─────────────────────────────────────
 function toast(msg, type = 'ok') {
@@ -1808,32 +1809,38 @@ function fmtDate(ts) {
 // DASHBOARD
 // ══════════════════════════════════════════════
 async function loadDashboard() {
-  try {
-    const [stats, log, routes] = await Promise.all([
-      GET('/api/stats'),
-      GET('/api/log?limit=5'),
-      GET('/api/routes'),
-    ]);
+  // Load each section independently so one failure doesn't break everything
+  const safe = async (fn, fallback) => { try { return await fn(); } catch(e) { console.warn('Dashboard section error:', e.message); return fallback; } };
 
-    document.getElementById('stat-today').textContent = stats.signalsToday ?? '0';
-    document.getElementById('stat-today-sub').textContent = 'signals processed';
-    document.getElementById('stat-rate').textContent = (stats.successRate ?? '100') + '%';
-    document.getElementById('stat-routes').textContent = stats.activeRoutes ?? '0';
-    document.getElementById('stat-routes-sub').textContent = `of ${stats.totalRoutes ?? 0} total`;
+  const [stats, log, routes] = await Promise.all([
+    safe(() => GET('/api/stats'),         { signalsToday:0, successRate:'100.0', activeRoutes:0, totalRoutes:0 }),
+    safe(() => GET('/api/log?limit=5'),   []),
+    safe(() => GET('/api/routes'),        []),
+  ]);
 
-    if (API_TOKEN) {
-      const url = `${API_BASE}/hook/${API_TOKEN}/signal`;
-      document.getElementById('stat-wh-url').textContent = url.replace('https://','');
-      document.getElementById('info-url').textContent = url.replace('https://','');
-    }
-    document.getElementById('info-version').textContent = '2.1.0';
-    document.getElementById('info-routes').textContent = stats.activeRoutes ?? '—';
-    document.getElementById('info-signals').textContent = stats.signalsToday ?? '—';
+  document.getElementById('stat-today').textContent     = stats.signalsToday ?? '0';
+  document.getElementById('stat-today-sub').textContent = 'signals processed';
+  document.getElementById('stat-rate').textContent      = (stats.successRate ?? '100') + '%';
+  document.getElementById('stat-routes').textContent    = stats.activeRoutes ?? '0';
+  document.getElementById('stat-routes-sub').textContent = `of ${stats.totalRoutes ?? 0} total`;
 
-    // Route status
-    const routeEl = document.getElementById('dash-routes');
+  if (API_TOKEN) {
+    const url = `${API_BASE}/hook/${API_TOKEN}/signal`;
+    const short = url.replace('https://','');
+    const el1 = document.getElementById('stat-wh-url');
+    const el2 = document.getElementById('info-url');
+    if (el1) el1.textContent = short;
+    if (el2) el2.textContent = short;
+  }
+  document.getElementById('info-version').textContent = '2.1.0';
+  document.getElementById('info-routes').textContent  = stats.activeRoutes ?? '—';
+  document.getElementById('info-signals').textContent = stats.signalsToday  ?? '—';
+
+  // Route status panel
+  const routeEl = document.getElementById('dash-routes');
+  if (routeEl) {
     if (!routes.length) {
-      routeEl.innerHTML = `<div class="empty-state" style="padding:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg><div>No routes yet</div></div>`;
+      routeEl.innerHTML = `<div class="empty-state" style="padding:20px 16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg><div>No routes yet</div></div>`;
     } else {
       routeEl.innerHTML = routes.map(r => `
         <div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--b1)">
@@ -1844,11 +1851,10 @@ async function loadDashboard() {
           <div class="flex" style="gap:6px">${pb(r.platform)}</div>
         </div>`).join('');
     }
+  }
 
-    // Recent signals
-    renderLogItems('dash-log', log, true);
-
-  } catch(e) { console.error('Dashboard load error:', e); }
+  // Recent signals
+  renderLogItems('dash-log', log, true);
 }
 
 function renderLogItems(containerId, logs, compact) {
@@ -1880,17 +1886,19 @@ function renderLogItems(containerId, logs, compact) {
 // ══════════════════════════════════════════════
 async function loadLogs() {
   const el = document.getElementById('logs-list');
+  if (!el) return;
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading…</div>';
+  if (!API_TOKEN) { el.innerHTML = '<div class="empty-state"><h3>Not connected</h3><div>Dashboard is loading — please wait.</div></div>'; return; }
   try {
-    const platform = document.getElementById('log-filter-platform').value;
-    const status   = document.getElementById('log-filter-status').value;
+    const platform = document.getElementById('log-filter-platform')?.value || '';
+    const status   = document.getElementById('log-filter-status')?.value   || '';
     let url = '/api/log?limit=200';
     if (platform) url += '&platform=' + platform;
     if (status)   url += '&status='   + status;
     const logs = await GET(url);
     renderLogItems('logs-list', logs, false);
   } catch(e) {
-    el.innerHTML = `<div class="callout callout-danger" style="margin:16px">Error: ${e.message}</div>`;
+    el.innerHTML = `<div class="callout callout-danger" style="margin:16px">Failed to load: ${e.message}</div>`;
   }
 }
 
@@ -1898,12 +1906,9 @@ async function loadLogs() {
 // WEBHOOK
 // ══════════════════════════════════════════════
 async function loadWebhook() {
-  try {
-    const h = await GET('/api/health').catch(() => ({}));
-    if (h.token) setToken(h.token);
-    const url = `${API_BASE}/hook/${API_TOKEN}/signal`;
-    document.getElementById('webhook-url-display').textContent = url;
-  } catch(e) {}
+  const url = `${API_BASE}/hook/${API_TOKEN}/signal`;
+  const el = document.getElementById('webhook-url-display');
+  if (el) el.textContent = API_TOKEN ? url : 'Loading…';
 }
 
 function copyWebhook() {
@@ -2230,7 +2235,7 @@ async function addSymbol() {
 async function removeSymbol(tvSym) {
   if (!confirm(`Remove all mappings for ${tvSym}?`)) return;
   try {
-    await DELETE(`/api/symbols/${tvSym}`);
+    await DELETE(`/api/symbols/${encodeURIComponent(tvSym)}`);
     toast(`${tvSym} removed`);
     await loadSymbols();
   } catch(e) { toast('Error: ' + e.message, 'err'); }
@@ -2472,15 +2477,17 @@ function connectWS() {
 // BOOT
 // ══════════════════════════════════════════════
 (async () => {
-  // Try to get token from server if not stored locally
+  // Bootstrap: fetch token from public /api/config if not in localStorage
   if (!API_TOKEN) {
     try {
-      const h = await GET('/api/health').catch(() => ({}));
-      if (h.token) setToken(h.token);
-    } catch(e) {}
+      const cfg = await fetch(API_BASE + '/api/config').then(r => r.json()).catch(() => ({}));
+      if (cfg.token) setToken(cfg.token);
+    } catch(e) {
+      console.warn('Could not fetch config, using empty token');
+    }
   }
-  // Load initial page data
-  loadDashboard();
+  // Load initial page
+  await loadDashboard();
   loadWebhook();
   connectWS();
 })();

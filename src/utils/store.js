@@ -214,6 +214,14 @@ const store = {
   nextLogId()              { return ++_logId; },
   incrementSignalsToday()  { _sigToday++; },
   getSignalsToday()        { return _sigToday; },
+  // Returns the first registered user's webhook token (single-tenant)
+  getFirstToken() {
+    for (const [token] of _tokenMap.entries()) {
+      return token;
+    }
+    return null;
+  },
+
   getTotalRoutes() {
     let n = 0;
     for (const u of _users.values()) n += u.routes?.length || 0;
